@@ -1,20 +1,40 @@
 /**
  * test_csv.c
- * Autor: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Testes unitários do TAD Csv.
  */
 #define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include "munit.h"
 #include "csv.h"
 
 /* Escreve um CSV temporário e devolve o caminho (estático). */
 static const char* escrever_csv(const char* conteudo) {
 	static char caminho[] = "/tmp/test_wikiart_XXXXXX";
+
 	int fd = mkstemp(caminho);
+	if (fd < 0) {
+		perror("mkstemp");
+		exit(1);
+	}
+
 	FILE* f = fdopen(fd, "w");
-	fputs(conteudo, f);
+	if (!f) {
+		perror("fdopen");
+		close(fd);
+		exit(1);
+	}
+
+	if (fputs(conteudo, f) == EOF) {
+		perror("fputs");
+		fclose(f);
+		exit(1);
+	}
+
 	fclose(f);
 	return caminho;
 }

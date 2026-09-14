@@ -1,5 +1,5 @@
 # Makefile
-# Autor: Miguel Mochizuki Silva, Artur Gomes e Leudo
+# Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
 # Descrição: Makefile da engine C do projeto
 
 CC      := gcc
@@ -16,10 +16,11 @@ TEST_SRC    := test/munit.c \
                test/test_obra.c \
                test/test_resultado.c \
                test/test_csv.c \
+               test/test_skip_list.c \
                src/obra.c \
                src/resultado.c \
-               src/csv.c
-TEST_OBJ    := $(TEST_SRC:.c=.o)
+               src/csv.c \
+               src/skip_list.c
 TEST_BIN    := test_runner
 
 .PHONY: all clean run valgrind test test-valgrind

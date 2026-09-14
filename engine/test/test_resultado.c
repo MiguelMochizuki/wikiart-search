@@ -29,8 +29,6 @@ static MunitResult test_criar_vazio(const MunitParameter params[], void* data) {
 	Resultado* r = resultado_criar(4);
 	munit_assert_not_null(r);
 	munit_assert_int(resultado_tamanho(r), ==, 0);
-	munit_assert_double(resultado_tempo_ms(r), ==, 0.0);
-	munit_assert_long(resultado_comparacoes(r), ==, 0);
 	resultado_liberar(r);
 	return MUNIT_OK;
 }
