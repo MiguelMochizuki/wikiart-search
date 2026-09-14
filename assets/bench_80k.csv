@@ -1,0 +1,7 @@
+estrutura,operacao,consultas,total_elementos,insercao_ms,media_ms,media_comparacoes
+skip_list,buscar_artista,10000,80042,23.4807,0.005115,387.80
+skip_list,buscar_genero,10000,80042,23.4807,1.159403,80042.00
+hash_table,buscar_artista,10000,80042,2.5898,0.003421,349.61
+hash_table,buscar_genero,10000,80042,2.5898,1.179560,80042.00
+tabela_ord,buscar_artista,10000,80042,166.8662,0.003718,365.94
+tabela_ord,buscar_genero,10000,80042,166.8662,0.852809,80042.00
