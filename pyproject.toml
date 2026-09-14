@@ -1,0 +1,21 @@
+[project]
+name = "wikiart-search"
+version = "0.1.0"
+description = "Sistema de busca sobre o WikiArt dataset (engine em C, GUI web, scripts em Python)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pandas>=2.2",
+    "matplotlib>=3.8",
+    "ruff>=0.5",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

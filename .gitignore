@@ -1,0 +1,45 @@
+# ==============================
+# Python
+# ==============================
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# ==============================
+# C
+# ==============================
+*.o
+*.a
+
+# ==============================
+# Binários da engine
+# ==============================
+engine/wikiart_server
+engine/test_runner
+engine/bench
+
+# ==============================
+# CSVs reais
+# ==============================
+/classes.csv
+/wclasses.csv
+WikiArt/
+engine/data/metadados.csv
+
+# ==============================
+# Sistema
+# ==============================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# ==============================
+# IDE
+# ==============================
+.idea/
+.vscode/
+*.code-workspace
