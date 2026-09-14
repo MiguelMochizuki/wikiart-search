@@ -9,6 +9,7 @@
 #include <string.h>
 #include "csv.h"
 #include "benchmark.h"
+#include "buscador.h"
 
 /* ==============================
  * Helpers internos
@@ -53,7 +54,6 @@ static void uso(const char* prog) {
  * ============================== */
 
 int main(int argc, char** argv) {
-	/* --help antes de tudo */
 	if (argc > 1 && strcmp(argv[1], "--help") == 0) {
 		uso(argv[0]);
 		return 0;
@@ -81,7 +81,12 @@ int main(int argc, char** argv) {
 	}
 
 	if (modo_bench) {
-		benchmark_rodar(csv, n_buscas);
+		/* Array terminado em NULL. Novas EDs entram aqui. */
+		const Buscador* buscadores[] = {
+			&BUSCADOR_SKIP_LIST,
+			NULL
+		};
+		benchmark_rodar(csv, buscadores, n_buscas);
 	} else {
 		int n = csv_tamanho(csv);
 		int limite = (argc > 2) ? atoi(argv[2]) : 5;
