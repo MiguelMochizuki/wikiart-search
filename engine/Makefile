@@ -6,7 +6,8 @@ CC      := gcc
 CFLAGS  := -std=c11 -Wall -Wextra -Wpedantic -O2 -g
 INCLUDE := -Iinclude
 
-SRC     := src/main.c src/csv.c src/obra.c src/resultado.c
+SRC     := src/main.c src/csv.c src/obra.c src/resultado.c \
+           src/skip_list.c src/benchmark.c
 OBJ     := $(SRC:.c=.o)
 BIN     := wikiart_server
 
@@ -23,7 +24,7 @@ TEST_SRC    := test/munit.c \
                src/skip_list.c
 TEST_BIN    := test_runner
 
-.PHONY: all clean run valgrind test test-valgrind
+.PHONY: all clean run bench valgrind test test-valgrind
 
 all: $(BIN)
 
@@ -35,6 +36,9 @@ $(BIN): $(OBJ)
 
 run: $(BIN)
 	./$(BIN) data/metadados_fake.csv
+
+bench: $(BIN)
+	./$(BIN) data/metadados_fake.csv --bench 1000
 
 valgrind: $(BIN)
 	valgrind --leak-check=full --error-exitcode=1 ./$(BIN) data/metadados_fake.csv
