@@ -18,10 +18,12 @@ TEST_SRC    := test/munit.c \
                test/test_resultado.c \
                test/test_csv.c \
                test/test_skip_list.c \
+               test/test_hash_table.c \
                src/obra.c \
                src/resultado.c \
                src/csv.c \
-               src/skip_list.c
+               src/skip_list.c \
+               src/hash_table.c
 TEST_BIN    := test_runner
 
 .PHONY: all clean run bench valgrind test test-valgrind

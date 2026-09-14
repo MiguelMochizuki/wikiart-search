@@ -9,6 +9,7 @@ const MunitSuite* suite_obra_get(void);
 const MunitSuite* suite_resultado_get(void);
 const MunitSuite* suite_csv_get(void);
 const MunitSuite* suite_skip_list_get(void);
+const MunitSuite* suite_hash_table_get(void);
 
 int main(int argc, char* argv[]) {
 	MunitSuite suites[] = {
@@ -16,6 +17,7 @@ int main(int argc, char* argv[]) {
 		*suite_resultado_get(),
 		*suite_csv_get(),
 		*suite_skip_list_get(),
+		*suite_hash_table_get(),
 		{ NULL, NULL, NULL, 1, MUNIT_SUITE_OPTION_NONE }
 	};
 
