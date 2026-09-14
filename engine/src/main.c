@@ -85,6 +85,7 @@ int main(int argc, char** argv) {
 		const Buscador* buscadores[] = {
 			&BUSCADOR_SKIP_LIST,
 			&BUSCADOR_HASH_TABLE,
+			&BUSCADOR_TABELA_ORD,
 			NULL
 		};
 		benchmark_rodar(csv, buscadores, n_buscas);
