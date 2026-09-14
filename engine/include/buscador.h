@@ -38,5 +38,6 @@ typedef struct buscador_t {
  * ============================== */
 
 extern const Buscador BUSCADOR_SKIP_LIST;
+extern const Buscador BUSCADOR_HASH_TABLE;
 
 #endif
