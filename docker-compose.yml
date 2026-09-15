@@ -1,0 +1,39 @@
+# docker-compose.yml
+# Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+# Descrição: Sobe o servidor HTTP da engine e, sob demanda, a suíte de testes.
+
+services:
+  engine:
+    build:
+      context: ./engine
+      target: runtime
+    image: wikiart-engine:latest
+    container_name: wikiart-engine
+    # Init como PID 1: sem ele o servidor (que não trata SIGTERM) ignoraria
+    # o sinal de parada e o compose esperaria o grace period inteiro.
+    init: true
+    stop_grace_period: 5s
+    ports:
+      - "${PORTA_HOST:-8080}:8080"
+    environment:
+      # Troque para data/metadados.csv depois de rodar preparar_dados.py
+      WIKIART_CSV: ${WIKIART_CSV:-data/metadados_fake.csv}
+      WIKIART_PORTA: "8080"
+    volumes:
+      # Bind mount: permite trocar o dataset sem rebuildar a imagem
+      - ./engine/data:/app/data:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/status"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # Perfil dev: não sobe no `up`. Use `docker compose run --rm testes`.
+  testes:
+    build:
+      context: ./engine
+      target: test
+    image: wikiart-engine-test:latest
+    profiles: ["dev"]
