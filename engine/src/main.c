@@ -1,26 +1,11 @@
-/**
- * main.c
- * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
- * Descrição: Ponto de entrada da engine. Suporta dois modos:
- *            listagem das primeiras obras do CSV e benchmark.
- */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "csv.h"
 #include "benchmark.h"
 #include "buscador.h"
+#include "server.h"
 
-/* ==============================
- * Helpers internos
- * ============================== */
-
-/** Imprime as primeiras N obras do CSV
- *
- * Parâmetros:
- * const Csv* csv: metadados carregados
- * int limite: número de obras a imprimir
- */
 static void listar_primeiras(const Csv* csv, int limite) {
 	int n = csv_tamanho(csv);
 	int fim = (limite < n) ? limite : n;
@@ -35,23 +20,15 @@ static void listar_primeiras(const Csv* csv, int limite) {
 	}
 }
 
-/** Imprime instruções de uso
- *
- * Parâmetros:
- * const char* prog: nome do programa
- */
 static void uso(const char* prog) {
 	fprintf(stderr,
 		"Uso:\n"
 		"  %s <csv> [limite]              lista as primeiras obras\n"
 		"  %s <csv> --bench [n_buscas]    roda o benchmark\n"
+		"  %s <csv> --server [porta]      inicia o servidor HTTP da API (padrao: 8080)\n"
 		"  %s --help                      mostra esta mensagem\n",
-		prog, prog, prog);
+		prog, prog, prog, prog);
 }
-
-/* ==============================
- * Ponto de entrada
- * ============================== */
 
 int main(int argc, char** argv) {
 	if (argc > 1 && strcmp(argv[1], "--help") == 0) {
@@ -69,7 +46,9 @@ int main(int argc, char** argv) {
 	}
 
 	int modo_bench = 0;
-	int n_buscas   = 1000;
+	int modo_server = 0;
+	int n_buscas = 1000;
+	int porta = 8080;
 
 	for (int i = 2; i < argc; i++) {
 		if (strcmp(argv[i], "--bench") == 0) {
@@ -77,11 +56,17 @@ int main(int argc, char** argv) {
 			if (i + 1 < argc) {
 				n_buscas = atoi(argv[i + 1]);
 			}
+		} else if (strcmp(argv[i], "--server") == 0) {
+			modo_server = 1;
+			if (i + 1 < argc && atoi(argv[i + 1]) > 0) {
+				porta = atoi(argv[i + 1]);
+			}
 		}
 	}
 
-	if (modo_bench) {
-		/* Array terminado em NULL. Novas EDs entram aqui. */
+	if (modo_server) {
+		server_iniciar(csv, porta);
+	} else if (modo_bench) {
 		const Buscador* buscadores[] = {
 			&BUSCADOR_SKIP_LIST,
 			&BUSCADOR_HASH_TABLE,

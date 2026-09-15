@@ -10,7 +10,7 @@ SRC     := src/main.c src/csv.c src/obra.c src/resultado.c \
            src/skip_list.c src/hash_table.c src/tabela_ord.c \
            src/buscador_skip_list.c src/buscador_hash_table.c \
            src/buscador_tabela_ord.c \
-           src/benchmark.c
+           src/benchmark.c src/json.c src/server.c
 OBJ     := $(SRC:.c=.o)
 BIN     := wikiart_server
 
