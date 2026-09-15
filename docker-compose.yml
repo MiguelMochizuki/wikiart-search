@@ -30,6 +30,21 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # Interface web: estático puro (HTML/CSS/JS), sem build.
+  # Fala com a engine pelo navegador do usuário, não pela rede do compose,
+  # então a URL da API é localhost:PORTA_HOST — e é por isso que o servidor
+  # manda Access-Control-Allow-Origin: *.
+  web:
+    image: nginx:1.27-alpine
+    container_name: wikiart-web
+    ports:
+      - "${PORTA_WEB:-3000}:80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+    depends_on:
+      - engine
+    restart: unless-stopped
+
   # Perfil dev: não sobe no `up`. Use `docker compose run --rm testes`.
   testes:
     build:

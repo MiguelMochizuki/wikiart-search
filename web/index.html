@@ -1,0 +1,94 @@
+<!doctype html>
+<!--
+  index.html
+  Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+  Descrição: Interface web da busca WikiArt. Navegação estilo -> artista -> obras.
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>WikiArt Search</title>
+  <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-conteudo">
+      <h1 class="marca">WikiArt <span>Search</span></h1>
+
+      <nav class="trilha" id="trilha" aria-label="Navegação">
+        <button class="trilha-item" data-nivel="estilos" type="button">Estilos</button>
+      </nav>
+
+      <div class="topo-controles">
+        <label class="campo-ed">
+          <span>Estrutura</span>
+          <select id="seletor-ed">
+            <option value="tabela_ord">Tabela ordenada</option>
+            <option value="hash_table">Hash table</option>
+            <option value="skip_list">Skip list</option>
+          </select>
+        </label>
+        <span class="status" id="status" title="Estado da engine">
+          <i class="ponto" data-estado="checando"></i><span id="status-texto">verificando…</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main id="palco">
+    <!-- Nível 1: estilos -->
+    <section id="tela-estilos" class="tela">
+      <div class="tela-cabeca">
+        <div>
+          <h2>Escolha um estilo</h2>
+          <p class="sub" id="resumo-estilos"></p>
+        </div>
+        <input type="search" id="filtro-estilos" class="filtro" placeholder="Filtrar estilos…"
+               autocomplete="off" aria-label="Filtrar estilos">
+      </div>
+      <div class="grade-estilos" id="grade-estilos"></div>
+    </section>
+
+    <!-- Nível 2: artistas -->
+    <section id="tela-artistas" class="tela" hidden>
+      <div class="tela-cabeca">
+        <div>
+          <h2 id="titulo-artistas"></h2>
+          <p class="sub" id="resumo-artistas"></p>
+        </div>
+        <input type="search" id="filtro-artistas" class="filtro" placeholder="Filtrar artistas…"
+               autocomplete="off" aria-label="Filtrar artistas">
+      </div>
+      <div class="grade-artistas" id="grade-artistas"></div>
+    </section>
+
+    <!-- Nível 3: obras -->
+    <section id="tela-obras" class="tela" hidden>
+      <div class="tela-cabeca">
+        <div>
+          <h2 id="titulo-obras"></h2>
+          <p class="sub" id="resumo-obras"></p>
+        </div>
+      </div>
+
+      <div class="metricas" id="metricas" hidden></div>
+      <div class="grade-obras" id="grade-obras"></div>
+      <div class="sentinela" id="sentinela"></div>
+    </section>
+
+    <div class="aviso" id="aviso" hidden></div>
+  </main>
+
+  <!-- Visor de imagem em tamanho grande -->
+  <div class="visor" id="visor" hidden>
+    <button class="visor-fechar" id="visor-fechar" type="button" aria-label="Fechar">&times;</button>
+    <figure class="visor-figura">
+      <img id="visor-img" alt="">
+      <figcaption id="visor-legenda"></figcaption>
+    </figure>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
