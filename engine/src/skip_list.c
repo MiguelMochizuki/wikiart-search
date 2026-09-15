@@ -275,3 +275,48 @@ Resultado* skip_list_buscar_genero(const SkipList* sl, const char* genero) {
 	resultado_set_metricas(r, agora_ms() - t0, comp);
 	return r;
 }
+
+/** Busca as obras de um artista filtrando por gênero
+ *
+ * Parâmetros:
+ * const SkipList* sl: ponteiro para a lista
+ * const char* genero: gênero procurado
+ * const char* artista: artista procurado
+ *
+ * Retorna Resultado*: resultado com os ponteiros encontrados
+ */
+Resultado* skip_list_buscar_genero_artista(const SkipList* sl,
+					   const char* genero,
+					   const char* artista) {
+	Resultado* r = resultado_criar(16);
+	if (!r) return NULL;
+
+	long comp = 0;
+	double t0 = agora_ms();
+
+	/* Desce pelos níveis até o maior nó com artista < procurado. */
+	NoSkip* no = sl->cabeca;
+	for (int i = sl->nivel_atual; i >= 0; i--) {
+		while (no->proximo[i]) {
+			comp++;
+			if (strcmp(obra_artista(no->proximo[i]->obra), artista) < 0) {
+				no = no->proximo[i];
+			} else {
+				break;
+			}
+		}
+	}
+
+	/* Percorre o bloco do artista no nível 0, filtrando por gênero. */
+	no = no->proximo[0];
+	while (no && strcmp(obra_artista(no->obra), artista) == 0) {
+		comp++;
+		if (strcmp(obra_genero(no->obra), genero) == 0) {
+			resultado_adicionar(r, no->obra);
+		}
+		no = no->proximo[0];
+	}
+
+	resultado_set_metricas(r, agora_ms() - t0, comp);
+	return r;
+}

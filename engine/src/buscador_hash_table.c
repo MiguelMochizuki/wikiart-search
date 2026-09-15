@@ -44,6 +44,12 @@ static Resultado* ht_buscar_genero(const void* p, const char* genero) {
 	return hash_table_buscar_genero((const HashTable*) p, genero);
 }
 
+/** Busca por gênero + artista */
+static Resultado* ht_buscar_genero_artista(const void* p, const char* genero,
+					const char* artista) {
+	return hash_table_buscar_genero_artista((const HashTable*) p, genero, artista);
+}
+
 /* ==============================
  * Instância pública
  * ============================== */
@@ -54,5 +60,6 @@ const Buscador BUSCADOR_HASH_TABLE = {
 	.liberar        = ht_liberar,
 	.inserir        = ht_inserir,
 	.buscar_artista = ht_buscar_artista,
-	.buscar_genero  = ht_buscar_genero
+	.buscar_genero  = ht_buscar_genero,
+	.buscar_genero_artista = ht_buscar_genero_artista
 };

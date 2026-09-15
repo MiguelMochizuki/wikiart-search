@@ -119,26 +119,48 @@ void json_serializar_obra(JsonBuffer* jb, const Obra* o) {
 	jb_adicionar_raw(jb, "}");
 }
 
+/** Escreve uma string escapada, ou o literal null se for NULL
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer de destino
+ * const char* str: string a escrever, ou NULL
+ */
+static void jb_adicionar_str_ou_null(JsonBuffer* jb, const char* str) {
+	if (!str) {
+		jb_adicionar_raw(jb, "null");
+		return;
+	}
+	jb_adicionar_escapado(jb, str);
+}
+
 void json_serializar_resultado(JsonBuffer* jb, const Resultado* r,
-                               const char* termo, const char* tipo,
-                               const char* estrutura) {
+                               const JsonConsulta* c) {
 	char buf[128];
 	jb_adicionar_raw(jb, "{");
 
-	jb_adicionar_raw(jb, "\"termo\":");
-	jb_adicionar_escapado(jb, termo);
+	jb_adicionar_raw(jb, "\"genero\":");
+	jb_adicionar_str_ou_null(jb, c->genero);
 	jb_adicionar_raw(jb, ",");
 
-	jb_adicionar_raw(jb, "\"tipo\":");
-	jb_adicionar_escapado(jb, tipo);
+	jb_adicionar_raw(jb, "\"artista\":");
+	jb_adicionar_str_ou_null(jb, c->artista);
+	jb_adicionar_raw(jb, ",");
+
+	jb_adicionar_raw(jb, "\"consulta\":");
+	jb_adicionar_escapado(jb, c->consulta);
 	jb_adicionar_raw(jb, ",");
 
 	jb_adicionar_raw(jb, "\"estrutura\":");
-	jb_adicionar_escapado(jb, estrutura);
+	jb_adicionar_escapado(jb, c->estrutura);
+	jb_adicionar_raw(jb, ",");
+
+	jb_adicionar_raw(jb, "\"algoritmo\":");
+	jb_adicionar_escapado(jb, c->algoritmo);
 	jb_adicionar_raw(jb, ",");
 
 	jb_adicionar_raw(jb, "\"metricas\":{");
-	snprintf(buf, sizeof buf, "\"tempo_ms\":%.6f,\"comparacoes\":%ld,\"total_encontrados\":%d",
+	snprintf(buf, sizeof buf,
+	         "\"tempo_ms\":%.6f,\"comparacoes\":%ld,\"total_encontrados\":%d",
 	         resultado_tempo_ms(r), resultado_comparacoes(r), resultado_tamanho(r));
 	jb_adicionar_raw(jb, buf);
 	jb_adicionar_raw(jb, "},");
@@ -148,6 +170,49 @@ void json_serializar_resultado(JsonBuffer* jb, const Resultado* r,
 	for (int i = 0; i < tot; i++) {
 		if (i > 0) jb_adicionar_raw(jb, ",");
 		json_serializar_obra(jb, resultado_item(r, i));
+	}
+	jb_adicionar_raw(jb, "]}");
+}
+
+void json_serializar_comparativo(JsonBuffer* jb,
+                                 const char* genero, const char* artista,
+                                 const char* consulta,
+                                 const JsonComparacao* itens, int n) {
+	char buf[192];
+	jb_adicionar_raw(jb, "{");
+
+	jb_adicionar_raw(jb, "\"genero\":");
+	jb_adicionar_str_ou_null(jb, genero);
+	jb_adicionar_raw(jb, ",");
+
+	jb_adicionar_raw(jb, "\"artista\":");
+	jb_adicionar_str_ou_null(jb, artista);
+	jb_adicionar_raw(jb, ",");
+
+	jb_adicionar_raw(jb, "\"consulta\":");
+	jb_adicionar_escapado(jb, consulta);
+	jb_adicionar_raw(jb, ",");
+
+	jb_adicionar_raw(jb, "\"total_encontrados\":");
+	snprintf(buf, sizeof buf, "%d,",
+	         n > 0 ? resultado_tamanho(itens[0].resultado) : 0);
+	jb_adicionar_raw(jb, buf);
+
+	jb_adicionar_raw(jb, "\"comparativo\":[");
+	for (int i = 0; i < n; i++) {
+		if (i > 0) jb_adicionar_raw(jb, ",");
+
+		jb_adicionar_raw(jb, "{\"estrutura\":");
+		jb_adicionar_escapado(jb, itens[i].estrutura);
+		jb_adicionar_raw(jb, ",\"algoritmo\":");
+		jb_adicionar_escapado(jb, itens[i].algoritmo);
+
+		snprintf(buf, sizeof buf,
+		         ",\"tempo_ms\":%.6f,\"comparacoes\":%ld,\"encontrados\":%d}",
+		         resultado_tempo_ms(itens[i].resultado),
+		         resultado_comparacoes(itens[i].resultado),
+		         resultado_tamanho(itens[i].resultado));
+		jb_adicionar_raw(jb, buf);
 	}
 	jb_adicionar_raw(jb, "]}");
 }

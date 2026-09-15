@@ -189,3 +189,39 @@ Resultado* hash_table_buscar_genero(const HashTable* ht, const char* genero) {
 	resultado_set_metricas(r, agora_ms() - t0, comp);
 	return r;
 }
+
+/** Busca as obras de um artista filtrando por gênero
+ *
+ * Parâmetros:
+ * const HashTable* ht: ponteiro para a tabela
+ * const char* genero: gênero procurado
+ * const char* artista: artista procurado
+ *
+ * Retorna Resultado*: resultado com os ponteiros encontrados
+ */
+Resultado* hash_table_buscar_genero_artista(const HashTable* ht,
+					    const char* genero,
+					    const char* artista) {
+	Resultado* r = resultado_criar(16);
+	if (!r) return NULL;
+
+	long comp = 0;
+	double t0 = agora_ms();
+
+	/* O artista é a chave de hash: chega ao bucket direto. O gênero
+	 * não é indexado, então vira filtro sobre a cadeia. */
+	unsigned long h = hash_djb2(artista) % (unsigned long) ht->capacidade;
+
+	for (NoHash* no = ht->buckets[h]; no; no = no->prox) {
+		comp++;
+		if (strcmp(obra_artista(no->obra), artista) != 0) continue;
+
+		comp++;
+		if (strcmp(obra_genero(no->obra), genero) == 0) {
+			resultado_adicionar(r, no->obra);
+		}
+	}
+
+	resultado_set_metricas(r, agora_ms() - t0, comp);
+	return r;
+}

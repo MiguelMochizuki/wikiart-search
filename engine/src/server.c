@@ -97,83 +97,230 @@ static void handle_status(int sock, const ServerContext* ctx) {
 	enviar_resposta(sock, 200, "OK", "application/json", buf, strlen(buf));
 }
 
-static void handle_busca(int sock, const ServerContext* ctx, const char* query) {
-	char termo[256] = {0};
-	char tipo[32] = "artista";
-	char ed[32] = "hash_table";
+/** Envia um erro em JSON
+ *
+ * A mensagem é sempre um literal do próprio servidor, nunca entrada do
+ * usuário, então não precisa de escape.
+ *
+ * Parâmetros:
+ * int sock: socket do cliente
+ * int status: código HTTP
+ * const char* status_msg: frase do status
+ * const char* mensagem: descrição do erro
+ */
+static void enviar_erro(int sock, int status, const char* status_msg,
+			const char* mensagem) {
+	char corpo[512];
+	int n = snprintf(corpo, sizeof corpo, "{\"erro\":\"%s\"}", mensagem);
+	if (n < 0) return;
+	if ((size_t) n >= sizeof corpo) n = (int) sizeof corpo - 1;
 
-	extrair_param(query, "q", termo, sizeof termo);
-	extrair_param(query, "tipo", tipo, sizeof tipo);
+	enviar_resposta(sock, status, status_msg, "application/json",
+			corpo, (size_t) n);
+}
+
+/** Resolve o nome de uma ED para a vtable e a instância correspondente
+ *
+ * Parâmetros:
+ * const char* nome: nome da ED vindo do parâmetro 'ed'
+ * const ServerContext* ctx: contexto com as instâncias populadas
+ * void** inst_out: saída para a instância escolhida
+ *
+ * Retorna const Buscador*: vtable da ED, ou NULL se o nome for inválido
+ */
+static const Buscador* buscador_por_nome(const char* nome,
+					 const ServerContext* ctx,
+					 void** inst_out) {
+	if (strcmp(nome, "hash_table") == 0) {
+		*inst_out = ctx->ht_inst;
+		return &BUSCADOR_HASH_TABLE;
+	}
+	if (strcmp(nome, "skip_list") == 0) {
+		*inst_out = ctx->sl_inst;
+		return &BUSCADOR_SKIP_LIST;
+	}
+	if (strcmp(nome, "tabela_ord") == 0) {
+		*inst_out = ctx->to_inst;
+		return &BUSCADOR_TABELA_ORD;
+	}
+	return NULL;
+}
+
+/** Descreve como a ED resolveu a consulta, para a interface exibir
+ *
+ * A TabelaOrd é o caso central do trabalho: gênero é a chave primária e
+ * (gênero, artista) é a chave completa, então as duas saem por busca
+ * binária. Artista sozinho é chave secundária e cai em varredura.
+ *
+ * Parâmetros:
+ * const char* ed: nome da ED
+ * const char* consulta: "genero", "artista" ou "genero+artista"
+ *
+ * Retorna const char*: rótulo do algoritmo usado
+ */
+static const char* algoritmo_de(const char* ed, const char* consulta) {
+	int so_artista = (strcmp(consulta, "artista") == 0);
+	int so_genero  = (strcmp(consulta, "genero") == 0);
+
+	if (strcmp(ed, "tabela_ord") == 0) {
+		return so_artista ? "varredura linear" : "busca binaria";
+	}
+	if (strcmp(ed, "hash_table") == 0) {
+		if (so_genero) return "varredura linear";
+		return so_artista ? "hash O(1) esperado"
+				  : "hash por artista + filtro por genero";
+	}
+	if (so_genero) return "varredura linear";
+	return so_artista ? "skip list O(log n)"
+			  : "skip list por artista + filtro por genero";
+}
+
+/** Lê um parâmetro e informa se veio preenchido
+ *
+ * Parâmetros:
+ * const char* query: query string da requisição
+ * const char* chave: nome do parâmetro
+ * char* destino: buffer de saída
+ * size_t max: tamanho do buffer
+ *
+ * Retorna int: 1 se o parâmetro veio e não está vazio, 0 caso contrário
+ */
+static int param_preenchido(const char* query, const char* chave,
+			    char* destino, size_t max) {
+	return extrair_param(query, chave, destino, max) && destino[0] != '\0';
+}
+
+static void handle_busca(int sock, const ServerContext* ctx, const char* query) {
+	char genero[256]  = {0};
+	char artista[256] = {0};
+	char ed[32]       = "tabela_ord";
+
+	int tem_genero  = param_preenchido(query, "genero",  genero,  sizeof genero);
+	int tem_artista = param_preenchido(query, "artista", artista, sizeof artista);
+
 	extrair_param(query, "ed", ed, sizeof ed);
 
-	const Buscador* b = &BUSCADOR_HASH_TABLE;
-	void* inst = ctx->ht_inst;
-
-	if (strcmp(ed, "skip_list") == 0) {
-		b = &BUSCADOR_SKIP_LIST;
-		inst = ctx->sl_inst;
-	} else if (strcmp(ed, "tabela_ord") == 0) {
-		b = &BUSCADOR_TABELA_ORD;
-		inst = ctx->to_inst;
-	} else {
-		strcpy(ed, "hash_table");
+	void* inst = NULL;
+	const Buscador* b = buscador_por_nome(ed, ctx, &inst);
+	if (!b) {
+		enviar_erro(sock, 400, "Bad Request",
+			    "Parametro 'ed' invalido. Use hash_table, "
+			    "skip_list ou tabela_ord.");
+		return;
 	}
 
+	/* Despacho: a combinação dos parâmetros escolhe a busca. */
 	Resultado* r = NULL;
-	if (strcmp(tipo, "genero") == 0) {
-		r = b->buscar_genero(inst, termo);
+	const char* consulta = NULL;
+
+	if (tem_genero && tem_artista) {
+		consulta = "genero+artista";
+		r = b->buscar_genero_artista(inst, genero, artista);
+	} else if (tem_genero) {
+		consulta = "genero";
+		r = b->buscar_genero(inst, genero);
+	} else if (tem_artista) {
+		consulta = "artista";
+		r = b->buscar_artista(inst, artista);
 	} else {
-		strcpy(tipo, "artista");
-		r = b->buscar_artista(inst, termo);
+		enviar_erro(sock, 400, "Bad Request",
+			    "Informe 'genero', 'artista' ou os dois.");
+		return;
 	}
+
+	if (!r) {
+		enviar_erro(sock, 500, "Internal Server Error",
+			    "Falha ao alocar o resultado.");
+		return;
+	}
+
+	JsonConsulta jc = {
+		.genero    = tem_genero  ? genero  : NULL,
+		.artista   = tem_artista ? artista : NULL,
+		.estrutura = b->nome,
+		.consulta  = consulta,
+		.algoritmo = algoritmo_de(b->nome, consulta)
+	};
 
 	JsonBuffer* jb = json_buffer_criar(4096);
-	json_serializar_resultado(jb, r, termo, tipo, ed);
+	if (!jb) {
+		resultado_liberar(r);
+		enviar_erro(sock, 500, "Internal Server Error",
+			    "Falha ao alocar o buffer de resposta.");
+		return;
+	}
 
+	json_serializar_resultado(jb, r, &jc);
 	enviar_resposta(sock, 200, "OK", "application/json",
-	                json_buffer_obter_texto(jb), json_buffer_tamanho(jb));
+			json_buffer_obter_texto(jb), json_buffer_tamanho(jb));
 
 	json_buffer_liberar(jb);
 	resultado_liberar(r);
 }
 
 static void handle_comparar(int sock, const ServerContext* ctx, const char* query) {
-	char termo[256] = {0};
-	char tipo[32] = "artista";
+	char genero[256]  = {0};
+	char artista[256] = {0};
 
-	extrair_param(query, "q", termo, sizeof termo);
-	extrair_param(query, "tipo", tipo, sizeof tipo);
+	int tem_genero  = param_preenchido(query, "genero",  genero,  sizeof genero);
+	int tem_artista = param_preenchido(query, "artista", artista, sizeof artista);
 
-	int is_genero = (strcmp(tipo, "genero") == 0);
-	const char* tipo_str = is_genero ? "genero" : "artista";
+	if (!tem_genero && !tem_artista) {
+		enviar_erro(sock, 400, "Bad Request",
+			    "Informe 'genero', 'artista' ou os dois.");
+		return;
+	}
 
-	Resultado* r_ht = is_genero ? BUSCADOR_HASH_TABLE.buscar_genero(ctx->ht_inst, termo)
-	                            : BUSCADOR_HASH_TABLE.buscar_artista(ctx->ht_inst, termo);
+	const char* consulta = (tem_genero && tem_artista) ? "genero+artista"
+			     : (tem_genero ? "genero" : "artista");
 
-	Resultado* r_sl = is_genero ? BUSCADOR_SKIP_LIST.buscar_genero(ctx->sl_inst, termo)
-	                            : BUSCADOR_SKIP_LIST.buscar_artista(ctx->sl_inst, termo);
+	const Buscador* eds[] = {
+		&BUSCADOR_HASH_TABLE,
+		&BUSCADOR_SKIP_LIST,
+		&BUSCADOR_TABELA_ORD
+	};
+	void* insts[] = { ctx->ht_inst, ctx->sl_inst, ctx->to_inst };
+	const int n_eds = (int) (sizeof eds / sizeof *eds);
 
-	Resultado* r_to = is_genero ? BUSCADOR_TABELA_ORD.buscar_genero(ctx->to_inst, termo)
-	                            : BUSCADOR_TABELA_ORD.buscar_artista(ctx->to_inst, termo);
+	/* Roda a mesma consulta nas três EDs e coleta as métricas. */
+	JsonComparacao linhas[3];
+	int n = 0;
 
-	char json[1024];
-	snprintf(json, sizeof json,
-	         "{\"termo\":\"%s\",\"tipo\":\"%s\",\"total_encontrados\":%d,"
-	         "\"comparativo\":["
-	         "{\"estrutura\":\"hash_table\",\"tempo_ms\":%.6f,\"comparacoes\":%ld},"
-	         "{\"estrutura\":\"skip_list\",\"tempo_ms\":%.6f,\"comparacoes\":%ld},"
-	         "{\"estrutura\":\"tabela_ord\",\"tempo_ms\":%.6f,\"comparacoes\":%ld}"
-	         "]}",
-	         termo, tipo_str, resultado_tamanho(r_ht),
-	         resultado_tempo_ms(r_ht), resultado_comparacoes(r_ht),
-	         resultado_tempo_ms(r_sl), resultado_comparacoes(r_sl),
-	         resultado_tempo_ms(r_to), resultado_comparacoes(r_to));
+	for (int i = 0; i < n_eds; i++) {
+		Resultado* r;
+		if (tem_genero && tem_artista) {
+			r = eds[i]->buscar_genero_artista(insts[i], genero, artista);
+		} else if (tem_genero) {
+			r = eds[i]->buscar_genero(insts[i], genero);
+		} else {
+			r = eds[i]->buscar_artista(insts[i], artista);
+		}
+		if (!r) continue;
 
-	enviar_resposta(sock, 200, "OK", "application/json", json, strlen(json));
+		linhas[n].estrutura = eds[i]->nome;
+		linhas[n].algoritmo = algoritmo_de(eds[i]->nome, consulta);
+		linhas[n].resultado = r;
+		n++;
+	}
 
-	resultado_liberar(r_ht);
-	resultado_liberar(r_sl);
-	resultado_liberar(r_to);
+	JsonBuffer* jb = json_buffer_criar(1024);
+	if (jb) {
+		json_serializar_comparativo(jb,
+					    tem_genero  ? genero  : NULL,
+					    tem_artista ? artista : NULL,
+					    consulta, linhas, n);
+		enviar_resposta(sock, 200, "OK", "application/json",
+				json_buffer_obter_texto(jb),
+				json_buffer_tamanho(jb));
+		json_buffer_liberar(jb);
+	} else {
+		enviar_erro(sock, 500, "Internal Server Error",
+			    "Falha ao alocar o buffer de resposta.");
+	}
+
+	for (int i = 0; i < n; i++) {
+		resultado_liberar((Resultado*) linhas[i].resultado);
+	}
 }
 
 static void processar_requisicao(int sock, const ServerContext* ctx) {
@@ -259,8 +406,9 @@ int server_iniciar(const Csv* csv, int porta) {
 	printf("Servidor WikiArt ativo em: http://localhost:%d\n", porta);
 	printf("Endpoints disponiveis:\n");
 	printf("  - GET /api/status\n");
-	printf("  - GET /api/busca?q=<termo>&tipo=<artista|genero>&ed=<hash_table|skip_list|tabela_ord>\n");
-	printf("  - GET /api/comparar?q=<termo>&tipo=<artista|genero>\n");
+	printf("  - GET /api/busca?genero=<g>&artista=<a>&ed=<hash_table|skip_list|tabela_ord>\n");
+	printf("      informe genero, artista ou os dois. \"ed\" e opcional (padrao: tabela_ord)\n");
+	printf("  - GET /api/comparar?genero=<g>&artista=<a>\n");
 	printf("======================================================\n\n");
 
 	while (1) {

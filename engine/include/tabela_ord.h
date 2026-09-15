@@ -1,8 +1,14 @@
 /**
  * tabela_ord.h
  * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
- * Descrição: Protótipo do TAD TabelaOrd. Lista indexada ordenada por
- *            artista, com busca binária na chave.
+ * Descrição: Protótipo do TAD TabelaOrd. Lista indexada ordenada pela
+ *            chave composta (gênero, artista), com busca binária.
+ *
+ * A ordenação primária é o gênero e a secundária o artista. Isso torna
+ * contíguos tanto o bloco de um gênero quanto, dentro dele, o bloco de
+ * um artista, permitindo busca binária nas duas consultas. Em troca, as
+ * obras de um mesmo artista ficam espalhadas entre os blocos de gênero,
+ * então a busca só por artista degenera em varredura linear.
  */
 #ifndef TABELA_ORD_H
 #define TABELA_ORD_H
@@ -33,7 +39,8 @@ TabelaOrd* tabela_ord_criar(void);
  */
 void tabela_ord_liberar(TabelaOrd* t);
 
-/** Insere uma obra na posição correta, mantendo a ordenação por artista
+/** Insere uma obra na posição correta, mantendo a ordenação
+ *  por (gênero, artista)
  *
  * Parâmetros:
  * TabelaOrd* t: ponteiro para a tabela
@@ -64,17 +71,10 @@ int tabela_ord_tamanho(const TabelaOrd* t);
  */
 const Obra* tabela_ord_item(const TabelaOrd* t, int indice);
 
-/** Busca todas as obras de um dado artista, via busca binária
+/** Busca todas as obras de um dado gênero, via busca binária
  *
- * Parâmetros:
- * const TabelaOrd* t: ponteiro para a tabela
- * const char* artista: nome do artista procurado
- *
- * Retorna Resultado*: resultado com os ponteiros encontrados
- */
-Resultado* tabela_ord_buscar_artista(const TabelaOrd* t, const char* artista);
-
-/** Busca todas as obras de um dado gênero, via varredura linear
+ * Gênero é a chave primária, então o bloco é contíguo. Custo
+ * O(log n + k), com k igual ao número de obras encontradas.
  *
  * Parâmetros:
  * const TabelaOrd* t: ponteiro para a tabela
@@ -83,5 +83,36 @@ Resultado* tabela_ord_buscar_artista(const TabelaOrd* t, const char* artista);
  * Retorna Resultado*: resultado com os ponteiros encontrados
  */
 Resultado* tabela_ord_buscar_genero(const TabelaOrd* t, const char* genero);
+
+/** Busca todas as obras de um artista em um gênero, via busca binária
+ *
+ * Usa a chave composta completa, então o bloco é contíguo. Custo
+ * O(log n + k). Esta é a consulta que a navegação usa no último nível.
+ *
+ * Parâmetros:
+ * const TabelaOrd* t: ponteiro para a tabela
+ * const char* genero: gênero procurado
+ * const char* artista: artista procurado (NULL equivale a buscar
+ *                      apenas pelo gênero)
+ *
+ * Retorna Resultado*: resultado com os ponteiros encontrados
+ */
+Resultado* tabela_ord_buscar_genero_artista(const TabelaOrd* t,
+					    const char* genero,
+					    const char* artista);
+
+/** Busca todas as obras de um dado artista, via varredura linear
+ *
+ * Artista é a chave secundária: suas obras ficam distribuídas entre os
+ * blocos de gênero, sem partição que permita descartar metades. Custo
+ * O(n), independente do número de resultados.
+ *
+ * Parâmetros:
+ * const TabelaOrd* t: ponteiro para a tabela
+ * const char* artista: nome do artista procurado
+ *
+ * Retorna Resultado*: resultado com os ponteiros encontrados
+ */
+Resultado* tabela_ord_buscar_artista(const TabelaOrd* t, const char* artista);
 
 #endif
