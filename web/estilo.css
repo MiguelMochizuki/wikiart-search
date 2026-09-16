@@ -1,0 +1,475 @@
+/*
+ * estilo.css
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+ * Descrição: Tema da interface web. Fundo escuro porque a tela é uma galeria:
+ *            reproduções de pintura leem melhor sobre neutro escuro.
+ */
+
+:root {
+  --fundo: #14120f;
+  --fundo-2: #1c1a16;
+  --fundo-3: #24211c;
+  --borda: #332f28;
+  --texto: #f0ece4;
+  --texto-2: #a89f8f;
+  --realce: #c9a227;
+  --realce-suave: rgba(201, 162, 39, 0.14);
+  --erro: #e0704f;
+  --raio: 10px;
+  --sombra: 0 6px 24px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font: 15px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+
+/* ==============================
+ * Topo
+ * ============================== */
+
+.topo {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(20, 18, 15, 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--borda);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.topo-conteudo {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.marca {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.marca span { color: var(--realce); font-weight: 400; }
+
+.trilha {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1 1 260px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.trilha-item {
+  background: none;
+  border: 0;
+  color: var(--texto-2);
+  font: inherit;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trilha-item:hover { color: var(--texto); background: var(--fundo-3); }
+.trilha-item[aria-current="true"] { color: var(--texto); cursor: default; }
+.trilha-item[aria-current="true"]:hover { background: none; }
+.trilha-sep { color: var(--borda); user-select: none; }
+
+.topo-controles {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.campo-ed {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--texto-2);
+}
+
+.campo-ed select {
+  background: var(--fundo-3);
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--texto-2);
+  white-space: nowrap;
+}
+
+.ponto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--texto-2);
+  flex: none;
+}
+.ponto[data-estado="online"] { background: #5fb87a; }
+.ponto[data-estado="offline"] { background: var(--erro); }
+.ponto[data-estado="checando"] { background: var(--realce); animation: pulsa 1.2s ease-in-out infinite; }
+
+@keyframes pulsa { 50% { opacity: 0.3; } }
+
+/* ==============================
+ * Telas
+ * ============================== */
+
+main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 28px 20px 64px;
+}
+
+.tela-cabeca {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.tela-cabeca h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.sub {
+  margin: 4px 0 0;
+  color: var(--texto-2);
+  font-size: 13.5px;
+}
+
+.filtro {
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  color: var(--texto);
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 12px;
+  min-width: 220px;
+  flex: 0 1 280px;
+}
+.filtro:focus {
+  outline: none;
+  border-color: var(--realce);
+  box-shadow: 0 0 0 3px var(--realce-suave);
+}
+
+/* ==============================
+ * Grade de estilos
+ * ============================== */
+
+.grade-estilos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.cartao-estilo {
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  padding: 16px 16px 14px;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.cartao-estilo:hover {
+  border-color: var(--realce);
+  background: var(--fundo-3);
+  transform: translateY(-2px);
+}
+
+.cartao-estilo h3 {
+  margin: 0 0 8px;
+  font-size: 15.5px;
+  font-weight: 600;
+}
+
+.cartao-numeros {
+  display: flex;
+  gap: 14px;
+  font-size: 12.5px;
+  color: var(--texto-2);
+}
+.cartao-numeros b { color: var(--realce); font-weight: 600; }
+
+/* ==============================
+ * Grade de artistas
+ * ============================== */
+
+.grade-artistas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+}
+
+.cartao-artista {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.cartao-artista:hover { border-color: var(--realce); background: var(--fundo-3); }
+
+.cartao-artista .nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pilula {
+  flex: none;
+  background: var(--realce-suave);
+  color: var(--realce);
+  border-radius: 20px;
+  padding: 2px 9px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==============================
+ * Métricas da engine
+ * ============================== */
+
+.metricas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.metrica {
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 8px 14px;
+  min-width: 118px;
+}
+.metrica dt {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--texto-2);
+}
+.metrica dd {
+  margin: 2px 0 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==============================
+ * Grade de obras
+ * ============================== */
+
+.grade-obras {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: 16px;
+}
+
+.cartao-obra {
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio);
+  overflow: hidden;
+  cursor: zoom-in;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.cartao-obra:hover { border-color: var(--realce); transform: translateY(-2px); }
+
+.moldura {
+  aspect-ratio: 1 / 1;
+  background: var(--fundo-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.moldura img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.moldura img.pronta { opacity: 1; }
+
+.moldura .falha {
+  color: var(--texto-2);
+  font-size: 12px;
+  text-align: center;
+  padding: 12px;
+}
+
+.obra-info { padding: 10px 12px 12px; }
+
+.obra-titulo {
+  font-size: 13.5px;
+  line-height: 1.35;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.obra-ano {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--texto-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.sentinela { height: 1px; }
+
+/* ==============================
+ * Visor
+ * ============================== */
+
+.visor {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(8, 7, 6, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+}
+
+.visor-figura {
+  margin: 0;
+  max-width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.visor-figura img {
+  max-width: 100%;
+  max-height: 78vh;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: var(--sombra);
+}
+
+.visor-figura figcaption {
+  color: var(--texto-2);
+  font-size: 13.5px;
+  text-align: center;
+  max-width: 60ch;
+}
+
+.visor-fechar {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top, 0px));
+  right: 20px;
+  background: var(--fundo-3);
+  border: 1px solid var(--borda);
+  color: var(--texto);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.visor-fechar:hover { border-color: var(--realce); }
+
+/* ==============================
+ * Estados
+ * ============================== */
+
+.aviso {
+  background: var(--fundo-2);
+  border: 1px solid var(--borda);
+  border-left: 3px solid var(--erro);
+  border-radius: 8px;
+  padding: 14px 16px;
+  color: var(--texto-2);
+  font-size: 14px;
+  margin-top: 20px;
+}
+.aviso b { color: var(--texto); }
+.aviso code {
+  background: var(--fundo-3);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.vazio {
+  color: var(--texto-2);
+  font-size: 14px;
+  padding: 28px 0;
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .topo-conteudo { gap: 12px; padding: 10px 16px; }
+  main { padding: 20px 16px 48px; }
+  .grade-obras { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .filtro { flex: 1 1 100%; }
+
+  /* Em coluna estreita o flex-wrap deixa as métricas em degraus irregulares,
+     porque "Algoritmo" é muito mais largo que as outras. Um 2x2 fecha certo:
+     as quatro métricas preenchem a grade sem sobrar buraco. */
+  .metricas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .metrica { min-width: 0; }
+}

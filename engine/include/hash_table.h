@@ -77,4 +77,20 @@ Resultado* hash_table_buscar_artista(const HashTable* ht, const char* artista);
  */
 Resultado* hash_table_buscar_genero(const HashTable* ht, const char* genero);
 
+/** Busca as obras de um artista filtrando por gênero
+ *
+ * Usa o artista, que é a chave de hash, para chegar ao bucket em O(1)
+ * esperado, e descarta na cadeia as obras de outro gênero.
+ *
+ * Parâmetros:
+ * const HashTable* ht: ponteiro para a tabela
+ * const char* genero: gênero procurado
+ * const char* artista: artista procurado
+ *
+ * Retorna Resultado*: resultado com os ponteiros encontrados
+ */
+Resultado* hash_table_buscar_genero_artista(const HashTable* ht,
+					    const char* genero,
+					    const char* artista);
+
 #endif

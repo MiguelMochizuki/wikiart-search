@@ -74,4 +74,20 @@ Resultado* skip_list_buscar_artista(const SkipList* sl, const char* artista);
  */
 Resultado* skip_list_buscar_genero(const SkipList* sl, const char* genero);
 
+/** Busca as obras de um artista filtrando por gênero
+ *
+ * Desce pelos níveis até o bloco do artista, que é a chave de
+ * ordenação, e descarta no nível 0 as obras de outro gênero.
+ *
+ * Parâmetros:
+ * const SkipList* sl: ponteiro para a lista
+ * const char* genero: gênero procurado
+ * const char* artista: artista procurado
+ *
+ * Retorna Resultado*: resultado com os ponteiros encontrados
+ */
+Resultado* skip_list_buscar_genero_artista(const SkipList* sl,
+					   const char* genero,
+					   const char* artista);
+
 #endif

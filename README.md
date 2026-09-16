@@ -106,6 +106,39 @@ cd engine
 ./wikiart_server data/metadados_fake.csv 20     # lista 20 obras
 ```
 
+### 5. Interface web
+
+A navegação é em três níveis: **estilo → artista → obras**.
+
+```bash
+uv run python scripts/gerar_indice.py   # gera web/indice.json a partir do metadados.csv
+docker compose up -d                    # sobe engine (8080) e interface (3000)
+```
+
+Abra <http://localhost:3000>.
+
+As listas de estilos e de artistas por estilo saem do `web/indice.json`, um
+arquivo estático de ~86 KB gerado do próprio `metadados.csv`. A engine só
+responde obras, então montar essas listas pela API custaria baixar o gênero
+inteiro (13 mil obras no Impressionismo) apenas para extrair nomes. Regenere o
+índice sempre que o `metadados.csv` mudar.
+
+A busca do terceiro nível vai em `/api/busca?genero=&artista=&ed=` e exibe as
+métricas que a engine devolve — estrutura, algoritmo, tempo e número de
+comparações. O seletor no topo troca a estrutura e refaz a mesma consulta, o
+que permite comparar as três lado a lado pela interface.
+
+As imagens vêm direto do endpoint de arquivo único do Kaggle, que é aberto para
+este dataset (CC0) e não exige token:
+
+```
+https://www.kaggle.com/api/v1/datasets/download/steubk/wikiart/<caminho>
+```
+
+Para apontar a interface para uma engine em outra porta, use
+`http://localhost:3000/?api=http://localhost:9090` — a escolha fica salva no
+navegador.
+
 ## Autores
 
 - Miguel Mochizuki Silva

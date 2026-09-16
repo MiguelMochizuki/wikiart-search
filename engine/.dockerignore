@@ -1,0 +1,7 @@
+# Artefatos de build locais, não entram no contexto da imagem
+*.o
+wikiart_server
+test_runner
+
+# CSV real: entra por bind mount do compose, não por COPY
+data/metadados.csv

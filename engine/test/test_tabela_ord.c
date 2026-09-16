@@ -2,7 +2,7 @@
  * test_tabela_ord.c
  * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Testes unitários do TAD TabelaOrd. Lista indexada
- *            ordenada por artista, com busca binária na chave.
+ *            ordenada por (gênero, artista), com busca binária.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -103,26 +103,52 @@ static MunitResult test_ordem_mantida_apos_insercoes(const MunitParameter params
 	(void) params;
 	(void) data;
 
-	/* Insere fora de ordem: picasso, van gogh, klimt.
-	 * A ordem lexicográfica é: klimt, picasso, van gogh. */
+	/* Insere fora de ordem. A chave primária é o gênero, então a ordem
+	 * final segue cubism < post-impressionism < symbolism, e não a
+	 * ordem alfabética dos artistas (klimt < picasso < van gogh). */
 	Obra* picasso  = obra_rapida(1, "g", "picasso",  "cubism");
 	Obra* van_gogh = obra_rapida(2, "s", "van gogh", "post-impressionism");
 	Obra* klimt    = obra_rapida(3, "k", "klimt",    "symbolism");
 
 	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, picasso);
 	tabela_ord_inserir(t, van_gogh);
 	tabela_ord_inserir(t, klimt);
+	tabela_ord_inserir(t, picasso);
 
 	munit_assert_int(tabela_ord_tamanho(t), ==, 3);
-	munit_assert_ptr_equal(tabela_ord_item(t, 0), klimt);
-	munit_assert_ptr_equal(tabela_ord_item(t, 1), picasso);
-	munit_assert_ptr_equal(tabela_ord_item(t, 2), van_gogh);
+	munit_assert_ptr_equal(tabela_ord_item(t, 0), picasso);
+	munit_assert_ptr_equal(tabela_ord_item(t, 1), van_gogh);
+	munit_assert_ptr_equal(tabela_ord_item(t, 2), klimt);
 
 	tabela_ord_liberar(t);
 	obra_liberar(picasso);
 	obra_liberar(van_gogh);
 	obra_liberar(klimt);
+	return MUNIT_OK;
+}
+
+static MunitResult test_ordem_desempata_por_artista(const MunitParameter params[], void* data) {
+	(void) params;
+	(void) data;
+
+	/* Dentro do mesmo gênero, o desempate é pelo artista. */
+	Obra* c = obra_rapida(1, "t", "ccc", "mesmo-genero");
+	Obra* a = obra_rapida(2, "t", "aaa", "mesmo-genero");
+	Obra* b = obra_rapida(3, "t", "bbb", "mesmo-genero");
+
+	TabelaOrd* t = tabela_ord_criar();
+	tabela_ord_inserir(t, c);
+	tabela_ord_inserir(t, a);
+	tabela_ord_inserir(t, b);
+
+	munit_assert_ptr_equal(tabela_ord_item(t, 0), a);
+	munit_assert_ptr_equal(tabela_ord_item(t, 1), b);
+	munit_assert_ptr_equal(tabela_ord_item(t, 2), c);
+
+	tabela_ord_liberar(t);
+	obra_liberar(a);
+	obra_liberar(b);
+	obra_liberar(c);
 	return MUNIT_OK;
 }
 
@@ -184,11 +210,13 @@ static MunitResult test_inserir_muitos(const MunitParameter params[], void* data
 
 	munit_assert_int(tabela_ord_tamanho(t), ==, 200);
 
-	/* Verifica ordenação completa */
+	/* Verifica a ordenação composta: gênero primeiro, artista depois */
 	for (int i = 1; i < 200; i++) {
-		const char* a = obra_artista(tabela_ord_item(t, i - 1));
-		const char* b = obra_artista(tabela_ord_item(t, i));
-		munit_assert_true(strcmp(a, b) <= 0);
+		const Obra* ant = tabela_ord_item(t, i - 1);
+		const Obra* cur = tabela_ord_item(t, i);
+		int cg = strcmp(obra_genero(ant), obra_genero(cur));
+		munit_assert_true(cg < 0 ||
+			(cg == 0 && strcmp(obra_artista(ant), obra_artista(cur)) <= 0));
 	}
 
 	tabela_ord_liberar(t);
@@ -374,6 +402,155 @@ static MunitResult test_item_fora_do_intervalo(const MunitParameter params[], vo
 }
 
 /* ==============================
+ * Testes: busca por gênero + artista
+ * ============================== */
+
+/** Monta uma tabela com o mesmo artista em dois gêneros
+ *
+ * Parâmetros:
+ * Obra** obras: array de 5 posições preenchido com as obras criadas
+ *
+ * Retorna TabelaOrd*: tabela populada
+ */
+static TabelaOrd* montar_tabela_mista(Obra** obras) {
+	obras[0] = obra_rapida(1, "t1", "van gogh", "realism");
+	obras[1] = obra_rapida(2, "t2", "van gogh", "post-impressionism");
+	obras[2] = obra_rapida(3, "t3", "van gogh", "post-impressionism");
+	obras[3] = obra_rapida(4, "t4", "picasso",  "post-impressionism");
+	obras[4] = obra_rapida(5, "t5", "klimt",    "realism");
+
+	TabelaOrd* t = tabela_ord_criar();
+	for (int i = 0; i < 5; i++) tabela_ord_inserir(t, obras[i]);
+	return t;
+}
+
+/** Libera as 5 obras montadas por montar_tabela_mista */
+static void liberar_mistas(Obra** obras) {
+	for (int i = 0; i < 5; i++) obra_liberar(obras[i]);
+}
+
+static MunitResult test_genero_artista_existente(const MunitParameter params[], void* data) {
+	(void) params;
+	(void) data;
+
+	Obra* obras[5];
+	TabelaOrd* t = montar_tabela_mista(obras);
+
+	Resultado* r = tabela_ord_buscar_genero_artista(t, "post-impressionism", "van gogh");
+
+	/* Das 3 obras de van gogh, só as 2 pós-impressionistas entram. */
+	munit_assert_int(resultado_tamanho(r), ==, 2);
+	for (int i = 0; i < resultado_tamanho(r); i++) {
+		const Obra* o = resultado_item(r, i);
+		munit_assert_string_equal(obra_artista(o), "van gogh");
+		munit_assert_string_equal(obra_genero(o), "post-impressionism");
+	}
+
+	resultado_liberar(r);
+	tabela_ord_liberar(t);
+	liberar_mistas(obras);
+	return MUNIT_OK;
+}
+
+static MunitResult test_genero_artista_par_inexistente(const MunitParameter params[], void* data) {
+	(void) params;
+	(void) data;
+
+	Obra* obras[5];
+	TabelaOrd* t = montar_tabela_mista(obras);
+
+	/* Artista existe e gênero existe, mas o par não. */
+	Resultado* r = tabela_ord_buscar_genero_artista(t, "realism", "picasso");
+	munit_assert_int(resultado_tamanho(r), ==, 0);
+
+	resultado_liberar(r);
+	tabela_ord_liberar(t);
+	liberar_mistas(obras);
+	return MUNIT_OK;
+}
+
+static MunitResult test_genero_artista_em_tabela_vazia(const MunitParameter params[], void* data) {
+	(void) params;
+	(void) data;
+
+	TabelaOrd* t = tabela_ord_criar();
+	Resultado* r = tabela_ord_buscar_genero_artista(t, "cubism", "picasso");
+
+	munit_assert_not_null(r);
+	munit_assert_int(resultado_tamanho(r), ==, 0);
+
+	resultado_liberar(r);
+	tabela_ord_liberar(t);
+	return MUNIT_OK;
+}
+
+static MunitResult test_genero_artista_null_equivale_a_genero(const MunitParameter params[], void* data) {
+	(void) params;
+	(void) data;
+
+	Obra* obras[5];
+	TabelaOrd* t = montar_tabela_mista(obras);
+
+	Resultado* com_null = tabela_ord_buscar_genero_artista(t, "realism", NULL);
+	Resultado* so_genero = tabela_ord_buscar_genero(t, "realism");
+
+	munit_assert_int(resultado_tamanho(com_null), ==, resultado_tamanho(so_genero));
+	munit_assert_int(resultado_tamanho(com_null), ==, 2);
+
+	resultado_liberar(com_null);
+	resultado_liberar(so_genero);
+	tabela_ord_liberar(t);
+	liberar_mistas(obras);
+	return MUNIT_OK;
+}
+
+static MunitResult test_genero_traz_artistas_diferentes(const MunitParameter params[], void* data) {
+	(void) params;
+	(void) data;
+
+	Obra* obras[5];
+	TabelaOrd* t = montar_tabela_mista(obras);
+
+	/* post-impressionism tem van gogh (2) e picasso (1). */
+	Resultado* r = tabela_ord_buscar_genero(t, "post-impressionism");
+	munit_assert_int(resultado_tamanho(r), ==, 3);
+
+	int tem_van_gogh = 0, tem_picasso = 0;
+	for (int i = 0; i < resultado_tamanho(r); i++) {
+		const char* a = obra_artista(resultado_item(r, i));
+		if (strcmp(a, "van gogh") == 0) tem_van_gogh = 1;
+		if (strcmp(a, "picasso")  == 0) tem_picasso  = 1;
+	}
+	munit_assert_true(tem_van_gogh);
+	munit_assert_true(tem_picasso);
+
+	resultado_liberar(r);
+	tabela_ord_liberar(t);
+	liberar_mistas(obras);
+	return MUNIT_OK;
+}
+
+static MunitResult test_artista_atravessa_generos(const MunitParameter params[], void* data) {
+	(void) params;
+	(void) data;
+
+	Obra* obras[5];
+	TabelaOrd* t = montar_tabela_mista(obras);
+
+	/* A varredura por artista alcança as obras dele em todos os gêneros. */
+	Resultado* r = tabela_ord_buscar_artista(t, "van gogh");
+	munit_assert_int(resultado_tamanho(r), ==, 3);
+
+	/* Varredura completa: uma comparação por elemento da tabela. */
+	munit_assert_long(resultado_comparacoes(r), ==, 5);
+
+	resultado_liberar(r);
+	tabela_ord_liberar(t);
+	liberar_mistas(obras);
+	return MUNIT_OK;
+}
+
+/* ==============================
  * Suíte
  * ============================== */
 
@@ -420,6 +597,20 @@ static const MunitSuite suite_tabela_ord = {
 		{ .name = "/item-fora-do-intervalo",
 		  .test = test_item_fora_do_intervalo,
 		  .setup = setup, .tear_down = teardown },
+		{ .name = "/ordem-desempata-por-artista",
+		  .test = test_ordem_desempata_por_artista },
+		{ .name = "/genero-artista-existente",
+		  .test = test_genero_artista_existente },
+		{ .name = "/genero-artista-par-inexistente",
+		  .test = test_genero_artista_par_inexistente },
+		{ .name = "/genero-artista-em-tabela-vazia",
+		  .test = test_genero_artista_em_tabela_vazia },
+		{ .name = "/genero-artista-null-equivale-a-genero",
+		  .test = test_genero_artista_null_equivale_a_genero },
+		{ .name = "/genero-traz-artistas-diferentes",
+		  .test = test_genero_traz_artistas_diferentes },
+		{ .name = "/artista-atravessa-generos",
+		  .test = test_artista_atravessa_generos },
 		{ .name = NULL }
 	},
 	NULL, 1, MUNIT_SUITE_OPTION_NONE

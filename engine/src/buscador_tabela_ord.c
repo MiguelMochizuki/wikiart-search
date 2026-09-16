@@ -35,6 +35,12 @@ static Resultado* to_buscar_genero(const void* p, const char* genero) {
 	return tabela_ord_buscar_genero((const TabelaOrd*) p, genero);
 }
 
+/** Busca por gênero + artista */
+static Resultado* to_buscar_genero_artista(const void* p, const char* genero,
+					const char* artista) {
+	return tabela_ord_buscar_genero_artista((const TabelaOrd*) p, genero, artista);
+}
+
 /* ==============================
  * Instância pública
  * ============================== */
@@ -45,5 +51,6 @@ const Buscador BUSCADOR_TABELA_ORD = {
 	.liberar        = to_liberar,
 	.inserir        = to_inserir,
 	.buscar_artista = to_buscar_artista,
-	.buscar_genero  = to_buscar_genero
+	.buscar_genero  = to_buscar_genero,
+	.buscar_genero_artista = to_buscar_genero_artista
 };

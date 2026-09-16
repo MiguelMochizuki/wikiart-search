@@ -27,6 +27,12 @@ engine/bench
 /wclasses.csv
 WikiArt/
 engine/data/metadados.csv
+web/indice.json
+
+# ==============================
+# Docker
+# ==============================
+.env
 
 # ==============================
 # Sistema

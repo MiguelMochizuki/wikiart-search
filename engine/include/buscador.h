@@ -23,6 +23,7 @@
  * inserir: adiciona uma obra à estrutura
  * buscar_artista: busca por artista, retorna Resultado
  * buscar_genero: busca por gênero, retorna Resultado
+ * buscar_genero_artista: busca pela combinação dos dois, retorna Resultado
  */
 typedef struct buscador_t {
 	const char* nome;
@@ -31,6 +32,7 @@ typedef struct buscador_t {
 	void        (*inserir)(void*, const Obra*);
 	Resultado*  (*buscar_artista)(const void*, const char*);
 	Resultado*  (*buscar_genero)(const void*, const char*);
+	Resultado*  (*buscar_genero_artista)(const void*, const char*, const char*);
 } Buscador;
 
 /* ==============================
