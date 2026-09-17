@@ -2,7 +2,18 @@
  * hash_table.h
  * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Protótipo do TAD HashTable. Tabela hash com encadeamento,
- *            indexada por artista (chave de hash) via djb2.
+ *            indexada pela chave composta (gênero, artista) via djb2.
+ *
+ * O gênero é a chave primária e define o bucket; o artista é a chave
+ * secundária e ordena a cadeia dentro do bucket. Isso concentra o bloco
+ * de um gênero em um único bucket e permite parada antecipada ao
+ * procurar um artista dentro dele. Em troca, a busca só por artista
+ * não tem bucket a consultar e degenera em varredura completa.
+ *
+ * Como só existem 27 gêneros distintos no corpus, poucos buckets ficam
+ * ocupados e cada cadeia é longa. É uma escolha de indexação, não de
+ * desempenho de hash: o bucket resolve o gênero em O(1), mas o custo
+ * real fica no percurso da cadeia.
  */
 #ifndef HASH_TABLE_H
 #define HASH_TABLE_H
@@ -57,7 +68,11 @@ void hash_table_inserir(HashTable* ht, const Obra* o);
  */
 int hash_table_tamanho(const HashTable* ht);
 
-/** Busca todas as obras de um dado artista
+/** Busca todas as obras de um dado artista, via varredura completa
+ *
+ * Artista é a chave secundária: não determina o bucket, então não há
+ * como evitar percorrer a tabela toda. A cadeia ordenada permite
+ * abandonar cada bucket cedo, mas o custo continua O(n).
  *
  * Parâmetros:
  * const HashTable* ht: ponteiro para a tabela
@@ -67,7 +82,10 @@ int hash_table_tamanho(const HashTable* ht);
  */
 Resultado* hash_table_buscar_artista(const HashTable* ht, const char* artista);
 
-/** Busca todas as obras de um dado gênero
+/** Busca todas as obras de um dado gênero, pelo bucket do gênero
+ *
+ * Gênero é a chave de hash: chega ao bucket em O(1) esperado e o
+ * percorre inteiro. Custo O(k), com k igual ao tamanho da cadeia.
  *
  * Parâmetros:
  * const HashTable* ht: ponteiro para a tabela
@@ -77,10 +95,13 @@ Resultado* hash_table_buscar_artista(const HashTable* ht, const char* artista);
  */
 Resultado* hash_table_buscar_genero(const HashTable* ht, const char* genero);
 
-/** Busca as obras de um artista filtrando por gênero
+/** Busca as obras de um artista dentro de um gênero
  *
- * Usa o artista, que é a chave de hash, para chegar ao bucket em O(1)
- * esperado, e descarta na cadeia as obras de outro gênero.
+ * Usa as duas chaves: o gênero leva ao bucket em O(1) esperado e a
+ * ordenação da cadeia por artista permite parar assim que o artista
+ * corrente passa do procurado. Custo O(k) no tamanho da cadeia, com
+ * metade dela percorrida em média. Esta é a consulta que a navegação
+ * usa no último nível.
  *
  * Parâmetros:
  * const HashTable* ht: ponteiro para a tabela

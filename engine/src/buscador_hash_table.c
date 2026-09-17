@@ -10,10 +10,13 @@
  * Constantes
  * ============================== */
 
-/* Capacidade fixa da tabela. Para 80k obras, fator de carga ~0.3,
- * o que mantém as cadeias curtas e a busca por artista em O(1)
- * esperado. 1 << 18 = 262.144 buckets (~2 MB de ponteiros). */
-#define CAPACIDADE_HASH (1 << 18)
+/* Capacidade fixa da tabela. A chave de hash é o gênero, e o corpus
+ * tem 27 gêneros distintos, então o que dimensiona a tabela é esse
+ * número e não as 80k obras. 1 << 10 = 1.024 buckets deixa colisão
+ * entre gêneros rara (~0,35 esperada) sem desperdiçar varredura: a
+ * busca por artista percorre todos os buckets, e 262.144 deles
+ * estariam vazios em 99,99% dos casos. */
+#define CAPACIDADE_HASH (1 << 10)
 
 /* ==============================
  * Adaptadores

@@ -2,7 +2,8 @@
  * skip_list.c
  * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Implementação do TAD SkipList. Lista encadeada
- *            probabilística, ordenada por artista.
+ *            probabilística, ordenada pela chave composta
+ *            (gênero, artista).
  */
 #define _POSIX_C_SOURCE 200809L
 #include <stdlib.h>
@@ -104,6 +105,27 @@ static void no_liberar(NoSkip* no) {
 	free(no);
 }
 
+/** Compara a chave de uma obra com a chave composta (gênero, artista)
+ *
+ * Compara primeiro o gênero; só desempata pelo artista quando os
+ * gêneros são iguais. O artista é opcional: passar NULL faz a chave
+ * procurada valer como "menor que qualquer artista daquele gênero",
+ * o que posiciona a descida no início do bloco do gênero.
+ *
+ * Parâmetros:
+ * const Obra* o: obra cuja chave será comparada
+ * const char* genero: gênero procurado
+ * const char* artista: artista procurado, ou NULL
+ *
+ * Retorna int: <0, 0 ou >0 conforme a obra seja menor, igual ou maior
+ */
+static int cmp_chave(const Obra* o, const char* genero, const char* artista) {
+	int c = strcmp(obra_genero(o), genero);
+	if (c != 0) return c;
+	if (!artista) return 1;
+	return strcmp(obra_artista(o), artista);
+}
+
 /** Retorna o tempo atual em milissegundos (relógio monotônico)
  *
  * Retorna double: tempo em ms desde um ponto arbitrário
@@ -155,7 +177,7 @@ void skip_list_liberar(SkipList* sl) {
 	free(sl);
 }
 
-/** Insere uma obra mantendo a ordenação por artista
+/** Insere uma obra mantendo a ordenação por (gênero, artista)
  *
  * Parâmetros:
  * SkipList* sl: ponteiro para a lista
@@ -169,8 +191,8 @@ void skip_list_inserir(SkipList* sl, const Obra* o) {
 
 	for (int i = sl->nivel_atual; i >= 0; i--) {
 		while (no->proximo[i] &&
-		       strcmp(obra_artista(no->proximo[i]->obra),
-		              obra_artista(o)) < 0) {
+		       cmp_chave(no->proximo[i]->obra,
+		                 obra_genero(o), obra_artista(o)) < 0) {
 			no = no->proximo[i];
 		}
 		atual[i] = no;
@@ -222,27 +244,15 @@ Resultado* skip_list_buscar_artista(const SkipList* sl, const char* artista) {
 	long comp = 0;
 	double t0 = agora_ms();
 
-	/* Desce pelos níveis até o nível 0, parando no maior nó cujo
-	 * artista seja estritamente menor que o procurado. */
-	NoSkip* no = sl->cabeca;
-	for (int i = sl->nivel_atual; i >= 0; i--) {
-		while (no->proximo[i]) {
-			comp++;
-			if (strcmp(obra_artista(no->proximo[i]->obra), artista) < 0) {
-				no = no->proximo[i];
-			} else {
-				break;
-			}
-		}
-	}
-
-	/* Agora `no` é o maior nó com artista < procurado. Avança no
-	 * nível 0 coletando os que casarem. */
-	no = no->proximo[0];
-	while (no && strcmp(obra_artista(no->obra), artista) == 0) {
+	/* Artista é a chave secundária: as obras de um mesmo artista estão
+	 * espalhadas entre os blocos de gênero. Os níveis superiores
+	 * particionam por gênero e não ajudam aqui, então varremos o
+	 * nível 0 inteiro. */
+	for (NoSkip* no = sl->cabeca->proximo[0]; no; no = no->proximo[0]) {
 		comp++;
-		resultado_adicionar(r, no->obra);
-		no = no->proximo[0];
+		if (strcmp(obra_artista(no->obra), artista) == 0) {
+			resultado_adicionar(r, no->obra);
+		}
 	}
 
 	resultado_set_metricas(r, agora_ms() - t0, comp);
@@ -264,12 +274,27 @@ Resultado* skip_list_buscar_genero(const SkipList* sl, const char* genero) {
 	long comp = 0;
 	double t0 = agora_ms();
 
-	/* Gênero não é chave de ordenação, então varremos o nível 0 inteiro. */
-	for (NoSkip* no = sl->cabeca->proximo[0]; no; no = no->proximo[0]) {
-		comp++;
-		if (strcmp(obra_genero(no->obra), genero) == 0) {
-			resultado_adicionar(r, no->obra);
+	/* Gênero é a chave primária: o bloco é contíguo no nível 0. Desce
+	 * com artista NULL, que posiciona no início do bloco. */
+	NoSkip* no = sl->cabeca;
+	for (int i = sl->nivel_atual; i >= 0; i--) {
+		while (no->proximo[i]) {
+			comp++;
+			if (cmp_chave(no->proximo[i]->obra, genero, NULL) < 0) {
+				no = no->proximo[i];
+			} else {
+				break;
+			}
 		}
+	}
+
+	/* Agora `no` é o maior nó anterior ao bloco. Avança no nível 0
+	 * coletando enquanto o gênero casar. */
+	no = no->proximo[0];
+	while (no && strcmp(obra_genero(no->obra), genero) == 0) {
+		comp++;
+		resultado_adicionar(r, no->obra);
+		no = no->proximo[0];
 	}
 
 	resultado_set_metricas(r, agora_ms() - t0, comp);
@@ -294,12 +319,13 @@ Resultado* skip_list_buscar_genero_artista(const SkipList* sl,
 	long comp = 0;
 	double t0 = agora_ms();
 
-	/* Desce pelos níveis até o maior nó com artista < procurado. */
+	/* Chave composta completa: o bloco do par é contíguo no nível 0.
+	 * Desce até o maior nó com chave menor que a procurada. */
 	NoSkip* no = sl->cabeca;
 	for (int i = sl->nivel_atual; i >= 0; i--) {
 		while (no->proximo[i]) {
 			comp++;
-			if (strcmp(obra_artista(no->proximo[i]->obra), artista) < 0) {
+			if (cmp_chave(no->proximo[i]->obra, genero, artista) < 0) {
 				no = no->proximo[i];
 			} else {
 				break;
@@ -307,13 +333,11 @@ Resultado* skip_list_buscar_genero_artista(const SkipList* sl,
 		}
 	}
 
-	/* Percorre o bloco do artista no nível 0, filtrando por gênero. */
+	/* Coleta as ocorrências consecutivas com a mesma chave composta. */
 	no = no->proximo[0];
-	while (no && strcmp(obra_artista(no->obra), artista) == 0) {
+	while (no && cmp_chave(no->obra, genero, artista) == 0) {
 		comp++;
-		if (strcmp(obra_genero(no->obra), genero) == 0) {
-			resultado_adicionar(r, no->obra);
-		}
+		resultado_adicionar(r, no->obra);
 		no = no->proximo[0];
 	}
 

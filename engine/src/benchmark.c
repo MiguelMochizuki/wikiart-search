@@ -111,6 +111,44 @@ static void medir_buscar_genero(const Csv* csv, const Buscador* b,
 	*media_comp_out = (double) comp_total / n_buscas;
 }
 
+/** Mede o custo médio de N buscas por gênero e artista
+ *
+ * Sorteia uma obra real e usa o par (gênero, artista) dela, o que
+ * garante resultado não vazio e reproduz a consulta do último nível
+ * da navegação.
+ *
+ * Parâmetros:
+ * const Csv* csv: metadados carregados
+ * const Buscador* b: estrutura populada
+ * void* instancia: instância da estrutura
+ * int n_buscas: número de consultas
+ * double* media_ms_out: saída para tempo médio
+ * double* media_comp_out: saída para comparações médias
+ */
+static void medir_buscar_genero_artista(const Csv* csv, const Buscador* b,
+					void* instancia, int n_buscas,
+					double* media_ms_out,
+					double* media_comp_out) {
+	int n = csv_tamanho(csv);
+	long comp_total = 0;
+	double t_total = 0.0;
+
+	for (int i = 0; i < n_buscas; i++) {
+		const Obra* o = csv_obra(csv, rand() % n);
+		Resultado* r = b->buscar_genero_artista(instancia,
+						        obra_genero(o),
+						        obra_artista(o));
+
+		t_total    += resultado_tempo_ms(r);
+		comp_total += resultado_comparacoes(r);
+
+		resultado_liberar(r);
+	}
+
+	*media_ms_out   = t_total / n_buscas;
+	*media_comp_out = (double) comp_total / n_buscas;
+}
+
 /* ==============================
  * Benchmark de um Buscador
  * ============================== */
@@ -135,11 +173,14 @@ static void benchmark_um(const Csv* csv, const Buscador* b, int n_buscas) {
 
 	double ms_artista, comp_artista;
 	double ms_genero,  comp_genero;
+	double ms_gen_art, comp_gen_art;
 
 	medir_buscar_artista(csv, b, instancia, n_buscas,
 			     &ms_artista, &comp_artista);
 	medir_buscar_genero (csv, b, instancia, n_buscas,
 			     &ms_genero, &comp_genero);
+	medir_buscar_genero_artista(csv, b, instancia, n_buscas,
+				    &ms_gen_art, &comp_gen_art);
 
 	b->liberar(instancia);
 
@@ -148,6 +189,9 @@ static void benchmark_um(const Csv* csv, const Buscador* b, int n_buscas) {
 
 	printf("%s,buscar_genero,%d,%d,%.4f,%.6f,%.2f\n",
 	       b->nome, n_buscas, n, insercao_ms, ms_genero, comp_genero);
+
+	printf("%s,buscar_genero_artista,%d,%d,%.4f,%.6f,%.2f\n",
+	       b->nome, n_buscas, n, insercao_ms, ms_gen_art, comp_gen_art);
 }
 
 /* ==============================

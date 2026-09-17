@@ -2,7 +2,9 @@
  * hash_table.c
  * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Implementação do TAD HashTable. Tabela hash com
- *            encadeamento, indexada por artista.
+ *            encadeamento, indexada por gênero (chave primária, define
+ *            o bucket) e com a cadeia de cada bucket mantida ordenada
+ *            por artista (chave secundária).
  */
 #define _POSIX_C_SOURCE 200809L
 
@@ -104,21 +106,35 @@ void hash_table_liberar(HashTable* ht) {
 	free(ht);
 }
 
-/** Insere uma obra na tabela, no bucket determinado pelo hash do artista
+/** Insere uma obra no bucket do seu gênero, ordenada por artista
+ *
+ * O bucket sai do hash do gênero. Dentro dele a cadeia é mantida
+ * ordenada por artista, o que custa uma varredura até o ponto de
+ * inserção: O(k) no tamanho da cadeia, não O(1).
  *
  * Parâmetros:
  * HashTable* ht: ponteiro para a tabela
  * const Obra* o: ponteiro para a obra (não copiada, só referenciada)
  */
 void hash_table_inserir(HashTable* ht, const Obra* o) {
-	unsigned long h = hash_djb2(obra_artista(o)) % (unsigned long) ht->capacidade;
+	unsigned long h = hash_djb2(obra_genero(o)) % (unsigned long) ht->capacidade;
 
 	NoHash* novo = malloc(sizeof *novo);
 	if (!novo) return;
 
 	novo->obra = o;
-	novo->prox = ht->buckets[h];
-	ht->buckets[h] = novo;
+
+	/* Avança enquanto o artista da cadeia for menor que o da obra nova.
+	 * `ligacao` aponta para o campo que receberá o nó, o que trata o
+	 * início da cadeia sem caso especial. */
+	NoHash** ligacao = &ht->buckets[h];
+	while (*ligacao &&
+	       strcmp(obra_artista((*ligacao)->obra), obra_artista(o)) < 0) {
+		ligacao = &(*ligacao)->prox;
+	}
+
+	novo->prox = *ligacao;
+	*ligacao   = novo;
 	ht->n++;
 }
 
@@ -148,11 +164,17 @@ Resultado* hash_table_buscar_artista(const HashTable* ht, const char* artista) {
 	long comp = 0;
 	double t0 = agora_ms();
 
-	unsigned long h = hash_djb2(artista) % (unsigned long) ht->capacidade;
-
-	for (NoHash* no = ht->buckets[h]; no; no = no->prox) {
-		comp++;
-		if (strcmp(obra_artista(no->obra), artista) == 0) {
+	/* Artista é a chave secundária: vive dentro da cadeia, não decide
+	 * o bucket. Sem bucket para consultar, varremos a tabela inteira.
+	 * A ordenação da cadeia ainda ajuda: assim que o artista corrente
+	 * passa do procurado, o resto daquela cadeia é maior e pode ser
+	 * abandonado. Continua O(n), com constante menor. */
+	for (int i = 0; i < ht->capacidade; i++) {
+		for (NoHash* no = ht->buckets[i]; no; no = no->prox) {
+			comp++;
+			int c = strcmp(obra_artista(no->obra), artista);
+			if (c < 0) continue;
+			if (c > 0) break;
 			resultado_adicionar(r, no->obra);
 		}
 	}
@@ -176,13 +198,16 @@ Resultado* hash_table_buscar_genero(const HashTable* ht, const char* genero) {
 	long comp = 0;
 	double t0 = agora_ms();
 
-	/* Gênero não é chave de hash, então varremos todos os buckets. */
-	for (int i = 0; i < ht->capacidade; i++) {
-		for (NoHash* no = ht->buckets[i]; no; no = no->prox) {
-			comp++;
-			if (strcmp(obra_genero(no->obra), genero) == 0) {
-				resultado_adicionar(r, no->obra);
-			}
+	/* Gênero é a chave de hash: um único bucket concentra o bloco.
+	 * A cadeia está ordenada por artista, não por gênero, então uma
+	 * colisão entre dois gêneros aparece intercalada e obriga a
+	 * comparar o gênero de cada nó em vez de parar cedo. */
+	unsigned long h = hash_djb2(genero) % (unsigned long) ht->capacidade;
+
+	for (NoHash* no = ht->buckets[h]; no; no = no->prox) {
+		comp++;
+		if (strcmp(obra_genero(no->obra), genero) == 0) {
+			resultado_adicionar(r, no->obra);
 		}
 	}
 
@@ -208,13 +233,17 @@ Resultado* hash_table_buscar_genero_artista(const HashTable* ht,
 	long comp = 0;
 	double t0 = agora_ms();
 
-	/* O artista é a chave de hash: chega ao bucket direto. O gênero
-	 * não é indexado, então vira filtro sobre a cadeia. */
-	unsigned long h = hash_djb2(artista) % (unsigned long) ht->capacidade;
+	/* Usa as duas chaves: o gênero leva ao bucket em O(1) e a cadeia
+	 * ordenada por artista permite parar assim que o artista corrente
+	 * passa do procurado. Ainda assim percorre metade da cadeia em
+	 * média, porque lista encadeada não admite busca binária. */
+	unsigned long h = hash_djb2(genero) % (unsigned long) ht->capacidade;
 
 	for (NoHash* no = ht->buckets[h]; no; no = no->prox) {
 		comp++;
-		if (strcmp(obra_artista(no->obra), artista) != 0) continue;
+		int c = strcmp(obra_artista(no->obra), artista);
+		if (c < 0) continue;
+		if (c > 0) break;
 
 		comp++;
 		if (strcmp(obra_genero(no->obra), genero) == 0) {

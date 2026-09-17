@@ -148,9 +148,10 @@ static const Buscador* buscador_por_nome(const char* nome,
 
 /** Descreve como a ED resolveu a consulta, para a interface exibir
  *
- * A TabelaOrd é o caso central do trabalho: gênero é a chave primária e
- * (gênero, artista) é a chave completa, então as duas saem por busca
- * binária. Artista sozinho é chave secundária e cai em varredura.
+ * As três EDs indexam pela chave composta (gênero, artista), então
+ * gênero e o par saem por busca indexada e artista sozinho cai em
+ * varredura nas três. O que muda é como cada uma alcança o bloco:
+ * busca binária, descida de níveis ou bucket mais cadeia.
  *
  * Parâmetros:
  * const char* ed: nome da ED
@@ -166,13 +167,13 @@ static const char* algoritmo_de(const char* ed, const char* consulta) {
 		return so_artista ? "varredura linear" : "busca binaria";
 	}
 	if (strcmp(ed, "hash_table") == 0) {
-		if (so_genero) return "varredura linear";
-		return so_artista ? "hash O(1) esperado"
-				  : "hash por artista + filtro por genero";
+		if (so_artista) return "varredura linear";
+		return so_genero ? "bucket do genero"
+				 : "bucket do genero + cadeia ordenada por artista";
 	}
-	if (so_genero) return "varredura linear";
-	return so_artista ? "skip list O(log n)"
-			  : "skip list por artista + filtro por genero";
+	if (so_artista) return "varredura linear";
+	return so_genero ? "skip list por genero"
+			 : "skip list pela chave composta";
 }
 
 /** Lê um parâmetro e informa se veio preenchido
