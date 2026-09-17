@@ -163,17 +163,21 @@ static const char* algoritmo_de(const char* ed, const char* consulta) {
 	int so_artista = (strcmp(consulta, "artista") == 0);
 	int so_genero  = (strcmp(consulta, "genero") == 0);
 
+	/* Cada rótulo nomeia o algoritmo, não a chave: as três indexam
+	 * pela mesma chave composta, o que muda é como alcançam o bloco.
+	 * Só a TabelaOrd faz busca binária de fato, porque só ela tem
+	 * acesso aleatório. A SkipList anda por níveis, O(log n)
+	 * esperado e não garantido. */
 	if (strcmp(ed, "tabela_ord") == 0) {
 		return so_artista ? "varredura linear" : "busca binaria";
 	}
 	if (strcmp(ed, "hash_table") == 0) {
 		if (so_artista) return "varredura linear";
-		return so_genero ? "bucket do genero"
-				 : "bucket do genero + cadeia ordenada por artista";
+		return so_genero ? "hash no genero + varredura da cadeia"
+				 : "hash no genero + cadeia ordenada por artista";
 	}
 	if (so_artista) return "varredura linear";
-	return so_genero ? "skip list por genero"
-			 : "skip list pela chave composta";
+	return "descida por niveis";
 }
 
 /** Lê um parâmetro e informa se veio preenchido
