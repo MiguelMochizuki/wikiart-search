@@ -14,17 +14,56 @@ A engine em C11 puro implementa os TADs `Obra`, `Resultado`, `Csv` e `Buscador`,
 
 ## Estruturas de dados
 
-| Estrutura | Busca por artista | Busca por gênero | Inserção |
-|---|---|---|---|
-| HashTable (encadeamento) | O(1) esperado | O(n) | O(1) esperado |
-| SkipList (probabilística) | O(log n) esperado | O(n) | O(log n) esperado |
-| TabelaOrd (lista indexada) | O(log n) | O(n) | O(n) |
+As três estruturas indexam pela mesma chave composta **(gênero, artista)**:
+gênero primário, artista secundário. `k` é o número de obras do bloco alcançado.
 
-A chave de ordenação e de hash é o artista. Gênero não é chave, então a busca por gênero é sempre varredura completa. Cada estrutura implementa a interface `Buscador`, uma vtable que permite plugar novas EDs no benchmark com uma linha de código.
+| Estrutura | Como aplica a chave | Busca por artista | Busca por gênero | Gênero + artista | Inserção |
+|---|---|---|---|---|---|
+| HashTable (encadeamento) | gênero no bucket, artista ordena a cadeia | O(n) | O(k) | O(k) | O(k) |
+| SkipList (probabilística) | nível 0 ordenado pela chave composta | O(n) | O(log n + k) esperado | O(log n + k) esperado | O(log n) esperado |
+| TabelaOrd (lista indexada) | array ordenado pela chave composta | O(n) | O(log n + k) | O(log n + k) | O(n) |
+
+Cada uma traduz a chave do jeito que a sua natureza permite. A **TabelaOrd**
+ordena o array e faz busca binária. A **SkipList** ordena o nível 0 e desce
+pelos níveis. A **HashTable** não tem ordem nenhuma, então parte a chave em
+duas: o gênero escolhe o bucket, o artista ordena a cadeia dentro dele.
+
+O efeito é comum às três: gênero e o par gênero+artista ficam rápidos, e a
+busca só por artista degenera em varredura completa, porque as obras de um
+mesmo artista ficam espalhadas entre os blocos de gênero.
+
+A HashTable paga essa tradução duas vezes. Só existem 27 gêneros, então a
+tabela tem 27 buckets ocupados com cadeias de milhares de nós — por isso a
+capacidade foi reduzida de 2^18 para 2^10 buckets, já que o que a dimensiona
+agora é o número de gêneros, não o de obras. E manter cada cadeia ordenada
+custa uma varredura por inserção, não O(1).
+
+Cada estrutura implementa a interface `Buscador`, uma vtable que permite plugar novas EDs no benchmark com uma linha de código.
 
 ## Resultados
 
-Benchmark sobre 80.042 obras, com 10.000 buscas por operação.
+Benchmark sobre 80.042 obras, com 10.000 buscas por operação. Dados brutos em
+`assets/bench_80k.csv`.
+
+| Estrutura | Operação | Tempo médio (ms) | Comparações médias |
+|---|---|---|---|
+| skip_list | buscar_artista | 2.3558 | 80042.00 |
+| skip_list | buscar_genero | 0.1558 | 6420.70 |
+| skip_list | buscar_genero_artista | **0.0094** | **284.12** |
+| hash_table | buscar_artista | 0.8876 | 40367.03 |
+| hash_table | buscar_genero | 0.1481 | 6332.78 |
+| hash_table | buscar_genero_artista | 0.0626 | 3526.26 |
+| tabela_ord | buscar_artista | 1.6900 | 80042.00 |
+| tabela_ord | buscar_genero | 0.1506 | 6312.01 |
+| tabela_ord | buscar_genero_artista | **0.0091** | **267.74** |
+
+Custo de carga das 80.042 obras:
+
+| Estrutura | Inserção (ms) |
+|---|---|
+| hash_table | 2075.75 |
+| tabela_ord | 138.29 |
+| skip_list | 55.05 |
 
 ### Busca por artista, número médio de comparações
 
@@ -42,7 +81,46 @@ Benchmark sobre 80.042 obras, com 10.000 buscas por operação.
 
 ![Busca por gênero, tempo](assets/graficos/bench_80k_buscar_genero_tempo.png)
 
-A HashTable vence a busca por artista (O(1) esperado), enquanto SkipList e TabelaOrd ficam parelhas em O(log n). A busca por gênero degenera para varredura linear em todas as estruturas, porque gênero não é chave de ordenação.
+### Busca por gênero e artista, número médio de comparações
+
+![Busca por gênero e artista, comparações](assets/graficos/bench_80k_buscar_genero_artista_comparacoes.png)
+
+### Busca por gênero e artista, tempo médio
+
+![Busca por gênero e artista, tempo](assets/graficos/bench_80k_buscar_genero_artista_tempo.png)
+
+**Busca por gênero.** As três empatam em torno de 6.300 comparações, e não é
+coincidência: esse é o tamanho médio do bloco de um gênero, ponderado pela
+chance de cada gênero ser sorteado. Chegar ao bloco é barato nas três, seja por
+busca binária, descida de níveis ou bucket. O que sobra é copiar o resultado, e
+isso ninguém evita.
+
+**Busca por gênero e artista.** Aqui aparece a diferença real. SkipList (284) e
+TabelaOrd (268) resolvem em poucas centenas de comparações, porque ambas
+localizam o bloco do par exato e só percorrem ele. A HashTable precisa de 3.526,
+uma ordem de grandeza a mais: o bucket resolve o gênero em O(1), mas o artista
+está dentro de uma cadeia encadeada, e lista encadeada não admite busca
+binária. Sobra percorrer metade da cadeia — cerca de 3.100 nós.
+
+**Busca por artista.** Degenera nas três, como esperado de uma chave
+secundária. SkipList e TabelaOrd pagam as 80.042 comparações cheias. A
+HashTable pagou 40.367, quase exatamente metade: como cada cadeia está ordenada
+por artista, a busca abandona o bucket assim que passa do nome procurado, e em
+média isso acontece no meio. É uma constante menor sobre o mesmo O(n).
+
+**Inserção.** O contraste mais forte da tabela. A HashTable saltou para 2.076 ms
+contra 55 ms da SkipList, 38x mais lenta. Manter ordenada uma cadeia de milhares
+de nós custa uma varredura a cada inserção, e são 80.042 delas. É o preço
+direto de usar ordenação dentro de uma estrutura que não foi feita para
+ordenar.
+
+**O balanço.** A chave composta acertou o alvo: `buscar_genero_artista`, a
+consulta que a interface realmente faz na navegação estilo → artista → obras,
+é a operação mais rápida das três estruturas. O custo foi empurrado para a
+busca só por artista, que nenhuma tela usa. Entre as três, SkipList e TabelaOrd
+absorveram bem a mudança; a HashTable ficou sendo a pior nas duas pontas que
+importam, busca composta e inserção, porque hash e ordenação resolvem problemas
+diferentes e forçar uma a imitar a outra cobra caro.
 
 ## Estrutura de pastas
 
@@ -81,7 +159,7 @@ make
 make test
 ```
 
-A suíte tem 61 testes. Para checar vazamentos:
+A suíte tem 81 testes. Para checar vazamentos:
 
 ```bash
 make test-valgrind
@@ -96,7 +174,7 @@ cd ..
 uv run python scripts/plotar_benchmark.py assets/bench_80k.csv
 ```
 
-Gera os quatro gráficos em `assets/graficos/`.
+Gera os seis gráficos em `assets/graficos/`, dois por operação medida.
 
 ### 4. Modo de listagem
 

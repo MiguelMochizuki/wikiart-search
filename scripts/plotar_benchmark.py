@@ -63,7 +63,7 @@ def main() -> None:
 
     base = entrada.stem
 
-    for operacao in ("buscar_artista", "buscar_genero"):
+    for operacao in ("buscar_artista", "buscar_genero", "buscar_genero_artista"):
         gerar_grafico(
             df, operacao, "media_ms",
             "Tempo medio de busca", "Tempo (ms)",

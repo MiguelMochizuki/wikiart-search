@@ -1,7 +1,10 @@
 estrutura,operacao,consultas,total_elementos,insercao_ms,media_ms,media_comparacoes
-skip_list,buscar_artista,10000,80042,23.4807,0.005115,387.80
-skip_list,buscar_genero,10000,80042,23.4807,1.159403,80042.00
-hash_table,buscar_artista,10000,80042,2.5898,0.003421,349.61
-hash_table,buscar_genero,10000,80042,2.5898,1.179560,80042.00
-tabela_ord,buscar_artista,10000,80042,166.8662,0.003718,365.94
-tabela_ord,buscar_genero,10000,80042,166.8662,0.852809,80042.00
+skip_list,buscar_artista,10000,80042,55.0472,2.355751,80042.00
+skip_list,buscar_genero,10000,80042,55.0472,0.155828,6420.70
+skip_list,buscar_genero_artista,10000,80042,55.0472,0.009433,284.12
+hash_table,buscar_artista,10000,80042,2075.7459,0.887580,40367.03
+hash_table,buscar_genero,10000,80042,2075.7459,0.148066,6332.78
+hash_table,buscar_genero_artista,10000,80042,2075.7459,0.062558,3526.26
+tabela_ord,buscar_artista,10000,80042,138.2947,1.689994,80042.00
+tabela_ord,buscar_genero,10000,80042,138.2947,0.150642,6312.01
+tabela_ord,buscar_genero_artista,10000,80042,138.2947,0.009090,267.74
