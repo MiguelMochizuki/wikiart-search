@@ -69,7 +69,6 @@ int main(int argc, char** argv) {
 	} else if (modo_bench) {
 		const Buscador* buscadores[] = {
 			&BUSCADOR_SKIP_LIST,
-			&BUSCADOR_HASH_TABLE,
 			&BUSCADOR_TABELA_ORD,
 			NULL
 		};

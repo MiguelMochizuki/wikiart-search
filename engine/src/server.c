@@ -21,7 +21,6 @@
 
 typedef struct {
 	const Csv* csv;
-	void* ht_inst;
 	void* sl_inst;
 	void* to_inst;
 } ServerContext;
@@ -92,7 +91,7 @@ static void handle_status(int sock, const ServerContext* ctx) {
 	char buf[256];
 	snprintf(buf, sizeof buf,
 	         "{\"status\":\"online\",\"total_obras\":%d,"
-	         "\"estruturas\":[\"hash_table\",\"skip_list\",\"tabela_ord\"]}",
+	         "\"estruturas\":[\"skip_list\",\"tabela_ord\"]}",
 	         csv_tamanho(ctx->csv));
 	enviar_resposta(sock, 200, "OK", "application/json", buf, strlen(buf));
 }
@@ -131,10 +130,6 @@ static void enviar_erro(int sock, int status, const char* status_msg,
 static const Buscador* buscador_por_nome(const char* nome,
 					 const ServerContext* ctx,
 					 void** inst_out) {
-	if (strcmp(nome, "hash_table") == 0) {
-		*inst_out = ctx->ht_inst;
-		return &BUSCADOR_HASH_TABLE;
-	}
 	if (strcmp(nome, "skip_list") == 0) {
 		*inst_out = ctx->sl_inst;
 		return &BUSCADOR_SKIP_LIST;
@@ -148,10 +143,10 @@ static const Buscador* buscador_por_nome(const char* nome,
 
 /** Descreve como a ED resolveu a consulta, para a interface exibir
  *
- * As três EDs indexam pela chave composta (gênero, artista), então
+ * As duas EDs indexam pela chave composta (gênero, artista), então
  * gênero e o par saem por busca indexada e artista sozinho cai em
- * varredura nas três. O que muda é como cada uma alcança o bloco:
- * busca binária, descida de níveis ou bucket mais cadeia.
+ * varredura nas duas. O que muda é como cada uma alcança o bloco:
+ * busca binária ou descida de níveis.
  *
  * Parâmetros:
  * const char* ed: nome da ED
@@ -161,20 +156,14 @@ static const Buscador* buscador_por_nome(const char* nome,
  */
 static const char* algoritmo_de(const char* ed, const char* consulta) {
 	int so_artista = (strcmp(consulta, "artista") == 0);
-	int so_genero  = (strcmp(consulta, "genero") == 0);
 
-	/* Cada rótulo nomeia o algoritmo, não a chave: as três indexam
+	/* Cada rótulo nomeia o algoritmo, não a chave: as duas indexam
 	 * pela mesma chave composta, o que muda é como alcançam o bloco.
 	 * Só a TabelaOrd faz busca binária de fato, porque só ela tem
 	 * acesso aleatório. A SkipList anda por níveis, O(log n)
 	 * esperado e não garantido. */
 	if (strcmp(ed, "tabela_ord") == 0) {
 		return so_artista ? "varredura linear" : "busca binaria";
-	}
-	if (strcmp(ed, "hash_table") == 0) {
-		if (so_artista) return "varredura linear";
-		return so_genero ? "hash no genero + varredura da cadeia"
-				 : "hash no genero + cadeia ordenada por artista";
 	}
 	if (so_artista) return "varredura linear";
 	return "descida por niveis";
@@ -209,8 +198,8 @@ static void handle_busca(int sock, const ServerContext* ctx, const char* query) 
 	const Buscador* b = buscador_por_nome(ed, ctx, &inst);
 	if (!b) {
 		enviar_erro(sock, 400, "Bad Request",
-			    "Parametro 'ed' invalido. Use hash_table, "
-			    "skip_list ou tabela_ord.");
+			    "Parametro 'ed' invalido. Use skip_list "
+			    "ou tabela_ord.");
 		return;
 	}
 
@@ -280,15 +269,14 @@ static void handle_comparar(int sock, const ServerContext* ctx, const char* quer
 			     : (tem_genero ? "genero" : "artista");
 
 	const Buscador* eds[] = {
-		&BUSCADOR_HASH_TABLE,
 		&BUSCADOR_SKIP_LIST,
 		&BUSCADOR_TABELA_ORD
 	};
-	void* insts[] = { ctx->ht_inst, ctx->sl_inst, ctx->to_inst };
+	void* insts[] = { ctx->sl_inst, ctx->to_inst };
 	const int n_eds = (int) (sizeof eds / sizeof *eds);
 
-	/* Roda a mesma consulta nas três EDs e coleta as métricas. */
-	JsonComparacao linhas[3];
+	/* Roda a mesma consulta nas duas EDs e coleta as métricas. */
+	JsonComparacao linhas[2];
 	int n = 0;
 
 	for (int i = 0; i < n_eds; i++) {
@@ -367,14 +355,12 @@ int server_iniciar(const Csv* csv, int porta) {
 	ctx.csv = csv;
 
 	printf("Populando estruturas na memoria para o servidor...\n");
-	ctx.ht_inst = BUSCADOR_HASH_TABLE.criar();
 	ctx.sl_inst = BUSCADOR_SKIP_LIST.criar();
 	ctx.to_inst = BUSCADOR_TABELA_ORD.criar();
 
 	int total = csv_tamanho(csv);
 	for (int i = 0; i < total; i++) {
 		const Obra* o = csv_obra(csv, i);
-		BUSCADOR_HASH_TABLE.inserir(ctx.ht_inst, o);
 		BUSCADOR_SKIP_LIST.inserir(ctx.sl_inst, o);
 		BUSCADOR_TABELA_ORD.inserir(ctx.to_inst, o);
 	}
@@ -411,7 +397,7 @@ int server_iniciar(const Csv* csv, int porta) {
 	printf("Servidor WikiArt ativo em: http://localhost:%d\n", porta);
 	printf("Endpoints disponiveis:\n");
 	printf("  - GET /api/status\n");
-	printf("  - GET /api/busca?genero=<g>&artista=<a>&ed=<hash_table|skip_list|tabela_ord>\n");
+	printf("  - GET /api/busca?genero=<g>&artista=<a>&ed=<skip_list|tabela_ord>\n");
 	printf("      informe genero, artista ou os dois. \"ed\" e opcional (padrao: tabela_ord)\n");
 	printf("  - GET /api/comparar?genero=<g>&artista=<a>\n");
 	printf("======================================================\n\n");
@@ -427,7 +413,6 @@ int server_iniciar(const Csv* csv, int porta) {
 	}
 
 	close(server_fd);
-	BUSCADOR_HASH_TABLE.liberar(ctx.ht_inst);
 	BUSCADOR_SKIP_LIST.liberar(ctx.sl_inst);
 	BUSCADOR_TABELA_ORD.liberar(ctx.to_inst);
 	return 0;

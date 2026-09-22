@@ -1,6 +1,6 @@
 # WikiArt Search
 
-Sistema de busca sobre metadados do [WikiArt](https://www.wikiart.org/) com engine em C, benchmark comparativo de três estruturas de dados e interface web.
+Sistema de busca sobre metadados do [WikiArt](https://www.wikiart.org/) com engine em C, benchmark comparativo de duas estruturas de dados e interface web.
 
 Desenvolvido para a disciplina de Estruturas de Dados. Corpus de aproximadamente 80.000 obras, 1.119 artistas e 27 estilos.
 
@@ -10,33 +10,27 @@ Desenvolvido para a disciplina de Estruturas de Dados. Corpus de aproximadamente
 Navegador (HTML + CSS + JS)  ->  Servidor HTTP em C  ->  Engine de busca em C
 ```
 
-A engine em C11 puro implementa os TADs `Obra`, `Resultado`, `Csv` e `Buscador`, além das três estruturas de busca comparadas.
+A engine em C11 puro implementa os TADs `Obra`, `Resultado`, `Csv` e `Buscador`, além das duas estruturas de busca comparadas.
 
 ## Estruturas de dados
 
-As três estruturas indexam pela mesma chave composta **(gênero, artista)**:
+As duas estruturas indexam pela mesma chave composta **(gênero, artista)**:
 gênero primário, artista secundário. `k` é o número de obras do bloco alcançado.
 
 | Estrutura | Como aplica a chave | Busca por artista | Busca por gênero | Gênero + artista | Inserção |
 |---|---|---|---|---|---|
-| HashTable (encadeamento) | gênero no bucket, artista ordena a cadeia | O(n) | O(k) | O(k) | O(k) |
 | SkipList (probabilística) | nível 0 ordenado pela chave composta | O(n) | O(log n + k) esperado | O(log n + k) esperado | O(log n) esperado |
 | TabelaOrd (lista indexada) | array ordenado pela chave composta | O(n) | O(log n + k) | O(log n + k) | O(n) |
 
-Cada uma traduz a chave do jeito que a sua natureza permite. A **TabelaOrd**
-ordena o array e faz busca binária. A **SkipList** ordena o nível 0 e desce
-pelos níveis. A **HashTable** não tem ordem nenhuma, então parte a chave em
-duas: o gênero escolhe o bucket, o artista ordena a cadeia dentro dele.
+Ambas mantêm a mesma ordem total sobre a chave composta; o que muda é como
+chegam ao bloco procurado. A **TabelaOrd** guarda tudo num array ordenado e
+faz busca binária de verdade, porque tem acesso aleatório. A **SkipList**
+ordena o nível 0 e desce pelos níveis sorteados, o que dá o mesmo custo em
+esperança, não garantido — em troca, insere sem deslocar nada.
 
-O efeito é comum às três: gênero e o par gênero+artista ficam rápidos, e a
+O efeito é comum às duas: gênero e o par gênero+artista ficam rápidos, e a
 busca só por artista degenera em varredura completa, porque as obras de um
 mesmo artista ficam espalhadas entre os blocos de gênero.
-
-A HashTable paga essa tradução duas vezes. Só existem 27 gêneros, então a
-tabela tem 27 buckets ocupados com cadeias de milhares de nós — por isso a
-capacidade foi reduzida de 2^18 para 2^10 buckets, já que o que a dimensiona
-agora é o número de gêneros, não o de obras. E manter cada cadeia ordenada
-custa uma varredura por inserção, não O(1).
 
 Cada estrutura implementa a interface `Buscador`, uma vtable que permite plugar novas EDs no benchmark com uma linha de código.
 
@@ -49,21 +43,17 @@ Benchmark sobre 80.042 obras, com 10.000 buscas por operação. Dados brutos em
 |---|---|---|---|
 | skip_list | buscar_artista | 2.3558 | 80042.00 |
 | skip_list | buscar_genero | 0.1558 | 6420.70 |
-| skip_list | buscar_genero_artista | **0.0094** | **284.12** |
-| hash_table | buscar_artista | 0.8876 | 40367.03 |
-| hash_table | buscar_genero | 0.1481 | 6332.78 |
-| hash_table | buscar_genero_artista | 0.0626 | 3526.26 |
-| tabela_ord | buscar_artista | 1.6900 | 80042.00 |
-| tabela_ord | buscar_genero | 0.1506 | 6312.01 |
+| skip_list | buscar_genero_artista | 0.0094 | 284.12 |
+| tabela_ord | buscar_artista | **1.6900** | 80042.00 |
+| tabela_ord | buscar_genero | **0.1506** | **6312.01** |
 | tabela_ord | buscar_genero_artista | **0.0091** | **267.74** |
 
 Custo de carga das 80.042 obras:
 
 | Estrutura | Inserção (ms) |
 |---|---|
-| hash_table | 2075.75 |
 | tabela_ord | 138.29 |
-| skip_list | 55.05 |
+| skip_list | **55.05** |
 
 ### Busca por artista, número médio de comparações
 
@@ -89,38 +79,42 @@ Custo de carga das 80.042 obras:
 
 ![Busca por gênero e artista, tempo](assets/graficos/bench_80k_buscar_genero_artista_tempo.png)
 
-**Busca por gênero.** As três empatam em torno de 6.300 comparações, e não é
+**Busca por gênero.** As duas empatam em torno de 6.300 comparações, e não é
 coincidência: esse é o tamanho médio do bloco de um gênero, ponderado pela
-chance de cada gênero ser sorteado. Chegar ao bloco é barato nas três, seja por
-busca binária, descida de níveis ou bucket. O que sobra é copiar o resultado, e
-isso ninguém evita.
+chance de cada gênero ser sorteado. Chegar ao bloco é barato nas duas, seja por
+busca binária ou descida de níveis. O que sobra é copiar o resultado, e isso
+nenhuma das duas evita.
 
-**Busca por gênero e artista.** Aqui aparece a diferença real. SkipList (284) e
-TabelaOrd (268) resolvem em poucas centenas de comparações, porque ambas
-localizam o bloco do par exato e só percorrem ele. A HashTable precisa de 3.526,
-uma ordem de grandeza a mais: o bucket resolve o gênero em O(1), mas o artista
-está dentro de uma cadeia encadeada, e lista encadeada não admite busca
-binária. Sobra percorrer metade da cadeia — cerca de 3.100 nós.
+**Busca por gênero e artista.** A consulta que a chave composta foi desenhada
+para servir, e a mais rápida das duas estruturas: TabelaOrd em 268 comparações
+e SkipList em 284, contra as ~6.300 do gênero inteiro. Ambas localizam o bloco
+do par exato e só percorrem ele, então o corte de uma ordem de grandeza vem da
+chave, não da estrutura. Os 6% que separam as duas são o preço de a SkipList
+ser sorteada: os níveis aproximam a busca binária em esperança, não a
+reproduzem.
 
-**Busca por artista.** Degenera nas três, como esperado de uma chave
-secundária. SkipList e TabelaOrd pagam as 80.042 comparações cheias. A
-HashTable pagou 40.367, quase exatamente metade: como cada cadeia está ordenada
-por artista, a busca abandona o bucket assim que passa do nome procurado, e em
-média isso acontece no meio. É uma constante menor sobre o mesmo O(n).
+**Busca por artista.** Degenera nas duas, como esperado de uma chave
+secundária: sem o gênero não há por onde entrar no índice, e as obras de um
+mesmo artista estão espalhadas por todos os blocos. Ambas pagam as 80.042
+comparações cheias. O que difere é só o relógio — 1,69 ms da TabelaOrd contra
+2,36 ms da SkipList, 28% a menos para a mesma varredura. É localidade de
+memória: um array contíguo percorre mais rápido que nós encadeados espalhados
+pelo heap.
 
-**Inserção.** O contraste mais forte da tabela. A HashTable saltou para 2.076 ms
-contra 55 ms da SkipList, 38x mais lenta. Manter ordenada uma cadeia de milhares
-de nós custa uma varredura a cada inserção, e são 80.042 delas. É o preço
-direto de usar ordenação dentro de uma estrutura que não foi feita para
-ordenar.
+**Inserção.** Aqui a ordem se inverte. A SkipList carrega as 80.042 obras em 55
+ms contra 138 ms da TabelaOrd, 2,5x mais rápida, e é a diferença entre O(log n)
+esperado e O(n): inserir no meio de um array ordenado obriga a deslocar toda a
+cauda, enquanto a SkipList só religa ponteiros. É a contrapartida direta do
+acesso aleatório que faz a TabelaOrd ganhar nas buscas.
 
 **O balanço.** A chave composta acertou o alvo: `buscar_genero_artista`, a
 consulta que a interface realmente faz na navegação estilo → artista → obras,
-é a operação mais rápida das três estruturas. O custo foi empurrado para a
-busca só por artista, que nenhuma tela usa. Entre as três, SkipList e TabelaOrd
-absorveram bem a mudança; a HashTable ficou sendo a pior nas duas pontas que
-importam, busca composta e inserção, porque hash e ordenação resolvem problemas
-diferentes e forçar uma a imitar a outra cobra caro.
+é a operação mais rápida das duas estruturas. O custo foi empurrado para a
+busca só por artista, que nenhuma tela usa. Entre as duas, a escolha é o
+clássico troca-carga-por-consulta: a SkipList constrói o índice 2,5x mais
+rápido, a TabelaOrd responde mais rápido em todas as três buscas. Como este
+índice é montado uma vez na subida do servidor e consultado a cada navegação, a
+TabelaOrd é o padrão da interface.
 
 ## Estrutura de pastas
 
@@ -159,7 +153,7 @@ make
 make test
 ```
 
-A suíte tem 81 testes. Para checar vazamentos:
+A suíte tem 58 testes. Para checar vazamentos:
 
 ```bash
 make test-valgrind
@@ -204,7 +198,7 @@ inteiro (13 mil obras no Impressionismo) apenas para extrair nomes. Regenere o
 A busca do terceiro nível vai em `/api/busca?genero=&artista=&ed=` e exibe as
 métricas que a engine devolve — estrutura, algoritmo, tempo e número de
 comparações. O seletor no topo troca a estrutura e refaz a mesma consulta, o
-que permite comparar as três lado a lado pela interface.
+que permite comparar as duas lado a lado pela interface.
 
 As imagens vêm direto do endpoint de arquivo único do Kaggle, que é aberto para
 este dataset (CC0) e não exige token:
