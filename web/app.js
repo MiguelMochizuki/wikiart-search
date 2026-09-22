@@ -106,7 +106,7 @@ function montarTrilha() {
 		if (i > 0) {
 			const sep = document.createElement('span');
 			sep.className = 'trilha-sep';
-			sep.textContent = '/';
+			sep.textContent = '◆';
 			trilha.append(sep);
 		}
 		const b = document.createElement('button');
@@ -174,10 +174,13 @@ function renderEstilos() {
 		return;
 	}
 
+	let ordem = 0;
 	for (const estilo of lista) {
 		const cartao = document.createElement('button');
 		cartao.type = 'button';
 		cartao.className = 'cartao-estilo';
+		/* --i escalona a animação de entrada; o CSS limita o atraso máximo. */
+		cartao.style.setProperty('--i', ordem++);
 
 		const h3 = document.createElement('h3');
 		h3.textContent = estilo.nome;
@@ -233,10 +236,12 @@ function renderArtistas() {
 		return;
 	}
 
+	let ordem = 0;
 	for (const artista of lista) {
 		const cartao = document.createElement('button');
 		cartao.type = 'button';
 		cartao.className = 'cartao-artista';
+		cartao.style.setProperty('--i', ordem++);
 
 		const nome = document.createElement('span');
 		nome.className = 'nome';
@@ -334,18 +339,21 @@ function renderLoteObras() {
 	const fim = Math.min(estado.renderizadas + PAGINA, estado.obras.length);
 	const frag = document.createDocumentFragment();
 
+	/* O escalonamento reinicia a cada lote: o segundo lote entra rolando, e
+	 * contar desde o início da lista deixaria todos com o atraso no teto. */
 	for (let i = estado.renderizadas; i < fim; i++) {
-		frag.append(criarCartaoObra(estado.obras[i]));
+		frag.append(criarCartaoObra(estado.obras[i], i - estado.renderizadas));
 	}
 	grade.append(frag);
 	estado.renderizadas = fim;
 }
 
-function criarCartaoObra(obra) {
+function criarCartaoObra(obra, ordem) {
 	const titulo = tituloBonito(obra.titulo, obra.ano);
 
 	const cartao = document.createElement('article');
 	cartao.className = 'cartao-obra';
+	cartao.style.setProperty('--i', ordem);
 
 	const moldura = document.createElement('div');
 	moldura.className = 'moldura';
@@ -454,10 +462,45 @@ async function checarStatus() {
 }
 
 /* ==============================
+ * Atmosfera
+ * ============================== */
+
+const PETALAS = 16;
+
+/** Povoa o fundo com pétalas à deriva
+ *
+ * Cada uma sobe uma vez a cada ciclo; o que varia entre elas é a coluna, o
+ * tamanho, a duração e o desvio lateral. O atraso negativo faz a animação
+ * começar no meio: a tela já abre com pétalas espalhadas, em vez de todas
+ * saindo juntas da borda de baixo.
+ */
+function semearPetalas() {
+	if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+	const campo = $('particulas');
+	const frag = document.createDocumentFragment();
+
+	for (let i = 0; i < PETALAS; i++) {
+		const dur = 22 + Math.random() * 26;
+		const p = document.createElement('i');
+		p.className = 'particula';
+		p.style.setProperty('--x', (Math.random() * 100).toFixed(2) + '%');
+		p.style.setProperty('--t', (4 + Math.random() * 6).toFixed(1) + 'px');
+		p.style.setProperty('--dur', dur.toFixed(1) + 's');
+		p.style.setProperty('--atraso', (-Math.random() * dur).toFixed(1) + 's');
+		p.style.setProperty('--desvio', Math.round(-90 + Math.random() * 180) + 'px');
+		frag.append(p);
+	}
+	campo.append(frag);
+}
+
+/* ==============================
  * Início
  * ============================== */
 
 async function iniciar() {
+	semearPetalas();
+
 	$('filtro-estilos').addEventListener('input', renderEstilos);
 	$('filtro-artistas').addEventListener('input', renderArtistas);
 	$('seletor-ed').addEventListener('change', () => { if (estado.artista) buscarObras(); });

@@ -1,22 +1,46 @@
 /*
  * estilo.css
  * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
- * Descrição: Tema da interface web. Fundo escuro porque a tela é uma galeria:
- *            reproduções de pintura leem melhor sobre neutro escuro.
+ * Descrição: Tema da interface web — claro-escuro de ateliê: fundo de noite
+ *            quase preta, fios de ouro velho e reservas de luz fria.
+ *            O escuro não é só estética: reproduções de pintura leem melhor
+ *            sobre neutro escuro, e as miniaturas entram rebaixadas e só
+ *            acendem sob o cursor (o "obscur" vira "clair" no hover).
  */
 
 :root {
-  --fundo: #14120f;
-  --fundo-2: #1c1a16;
-  --fundo-3: #24211c;
-  --borda: #332f28;
-  --texto: #f0ece4;
-  --texto-2: #a89f8f;
-  --realce: #c9a227;
-  --realce-suave: rgba(201, 162, 39, 0.14);
-  --erro: #e0704f;
-  --raio: 10px;
-  --sombra: 0 6px 24px rgba(0, 0, 0, 0.45);
+  /* Noite */
+  --noite: #0a090c;
+  --abismo: #060508;
+  --tela-1: #121016;
+  --tela-2: #1a171f;
+  --tela-3: #232029;
+
+  /* Fios */
+  --linha: #2b2731;
+  --linha-viva: #3d3542;
+
+  /* Luz */
+  --osso: #ece4d6;
+  --cinza: #948b82;
+  --cinza-fraco: #6b6560;
+
+  /* Ouro velho: acento principal, usado com parcimônia */
+  --ouro: #c8a856;
+  --ouro-claro: #f0dca8;
+  --ouro-vel: rgba(200, 168, 86, 0.14);
+
+  /* Luz fria das lanternas: estados vivos (online, foco) */
+  --lumina: #86d5cd;
+
+  /* Rosa de pétala: erros e avisos, na mesma família cromática do tema */
+  --erro: #d4788c;
+
+  --raio: 2px;          /* quase reto: molduras de quadro não têm canto redondo */
+  --sombra: 0 24px 60px rgba(0, 0, 0, 0.7);
+  --serifada: "Cormorant Garamond", "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --capitular: "Cinzel", "Cormorant Garamond", Georgia, serif;
+  --interface: "Jost", "Segoe UI", system-ui, -apple-system, sans-serif;
   color-scheme: dark;
 }
 
@@ -24,14 +48,96 @@
 
 body {
   margin: 0;
-  background: var(--fundo);
-  color: var(--texto);
-  font: 15px/1.55 "Segoe UI", system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  background: var(--noite);
+  color: var(--osso);
+  font: 300 15px/1.6 var(--interface);
+  letter-spacing: 0.01em;
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  overflow-x: hidden;
+}
+
+/* Fundo em camadas: halo dourado no alto (a luz que entra), reflexo frio
+ * embaixo, um sopro de rosa na lateral, trama de tela por cima e vinheta
+ * fechando as bordas. Tudo num pseudo-elemento fixo para não rolar junto. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(1200px 620px at 50% -12%, rgba(200, 168, 86, 0.13), transparent 68%),
+    radial-gradient(900px 760px at 92% 108%, rgba(134, 213, 205, 0.07), transparent 66%),
+    radial-gradient(760px 560px at 2% 76%, rgba(212, 120, 140, 0.055), transparent 66%),
+    repeating-linear-gradient(115deg, rgba(236, 228, 214, 0.013) 0 1px, transparent 1px 9px),
+    radial-gradient(ellipse 120% 100% at 50% 45%, transparent 38%, rgba(0, 0, 0, 0.62) 100%),
+    var(--abismo);
 }
 
 img { max-width: 100%; }
 [hidden] { display: none !important; }
+
+::selection { background: rgba(200, 168, 86, 0.3); color: var(--ouro-claro); }
+
+:focus-visible {
+  outline: 1px solid var(--ouro);
+  outline-offset: 3px;
+}
+
+/* Barra de rolagem em fio escuro, para não cortar o tema com um trilho cinza */
+* { scrollbar-width: thin; scrollbar-color: var(--linha-viva) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--abismo); }
+::-webkit-scrollbar-thumb { background: var(--linha-viva); border: 3px solid var(--abismo); }
+::-webkit-scrollbar-thumb:hover { background: var(--ouro); }
+
+/* ==============================
+ * Atmosfera: grão e pétalas
+ * ============================== */
+
+/* Ruído gerado por feTurbulence e embutido como data URI: um ladrilho de
+ * 160px se repete pela tela inteira sem custar requisição nem arquivo. */
+.grao {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='r'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='160' height='160' filter='url(%23r)'/></svg>");
+}
+
+.particulas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Pétala: um losango arredondado que sobe girando e some no topo.
+ * As variáveis --x, --t, --dur, --atraso e --desvio vêm do app.js. */
+.particula {
+  position: absolute;
+  bottom: -40px;
+  left: var(--x, 50%);
+  width: var(--t, 7px);
+  height: var(--t, 7px);
+  border-radius: 60% 0 60% 0;
+  background: linear-gradient(140deg, var(--ouro-claro), rgba(212, 120, 140, 0.55));
+  opacity: 0;
+  filter: blur(0.3px);
+  animation: derivar var(--dur, 26s) linear var(--atraso, 0s) infinite;
+}
+.particula:nth-child(3n) { background: linear-gradient(140deg, #fff3d6, rgba(134, 213, 205, 0.5)); }
+.particula:nth-child(4n) { border-radius: 50%; }
+
+@keyframes derivar {
+  0%   { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 0; }
+  12%  { opacity: 0.5; }
+  80%  { opacity: 0.3; }
+  100% { transform: translate3d(var(--desvio, 60px), -110vh, 0) rotate(420deg); opacity: 0; }
+}
 
 /* ==============================
  * Topo
@@ -41,35 +147,83 @@ img { max-width: 100%; }
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(20, 18, 15, 0.92);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--borda);
+  background: linear-gradient(to bottom, rgba(10, 9, 12, 0.96), rgba(10, 9, 12, 0.82));
+  backdrop-filter: blur(10px);
   padding-top: env(safe-area-inset-top, 0px);
 }
 
+/* Fio duplo embaixo do cabeçalho: um traço de ouro sobre um de luz fraca —
+ * a linha de guarda das gravuras da época. */
+.topo::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background:
+    linear-gradient(to right, transparent, rgba(200, 168, 86, 0.45) 18%, rgba(200, 168, 86, 0.45) 82%, transparent) 0 0 / 100% 1px no-repeat,
+    linear-gradient(to right, transparent, rgba(236, 228, 214, 0.08) 30%, rgba(236, 228, 214, 0.08) 70%, transparent) 0 2px / 100% 1px no-repeat;
+}
+
 .topo-conteudo {
-  max-width: 1280px;
+  max-width: 1320px;
   margin: 0 auto;
-  padding: 12px 20px;
+  padding: 14px 24px 16px;
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 20px;
   flex-wrap: wrap;
 }
 
 .marca {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
   white-space: nowrap;
 }
-.marca span { color: var(--realce); font-weight: 400; }
+
+.marca-nome {
+  font-family: var(--capitular);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: linear-gradient(160deg, var(--osso) 20%, var(--ouro-claro) 55%, var(--ouro) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Losango entre as duas metades da marca */
+.marca-orn {
+  width: 5px;
+  height: 5px;
+  flex: none;
+  background: var(--ouro);
+  transform: rotate(45deg);
+  box-shadow: 0 0 10px rgba(200, 168, 86, 0.65);
+  transition: box-shadow 0.3s;
+}
+
+.marca-sub {
+  font-family: var(--serifada);
+  font-style: italic;
+  font-size: 17px;
+  color: var(--cinza);
+  letter-spacing: 0.04em;
+  transition: color 0.3s;
+}
+
+.marca:hover .marca-sub { color: var(--ouro-claro); }
+.marca:hover .marca-orn { box-shadow: 0 0 16px rgba(200, 168, 86, 0.95); }
 
 .trilha {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   flex: 1 1 260px;
   min-width: 0;
   flex-wrap: wrap;
@@ -78,116 +232,238 @@ img { max-width: 100%; }
 .trilha-item {
   background: none;
   border: 0;
-  color: var(--texto-2);
-  font: inherit;
-  font-size: 14px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  color: var(--cinza);
+  font-family: var(--capitular);
+  font-size: 11.5px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 5px 9px;
   cursor: pointer;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 0.2s, background 0.2s;
 }
-.trilha-item:hover { color: var(--texto); background: var(--fundo-3); }
-.trilha-item[aria-current="true"] { color: var(--texto); cursor: default; }
+.trilha-item:hover { color: var(--ouro-claro); background: var(--ouro-vel); }
+.trilha-item[aria-current="true"] {
+  color: var(--osso);
+  cursor: default;
+  box-shadow: inset 0 -1px 0 var(--ouro);
+}
 .trilha-item[aria-current="true"]:hover { background: none; }
-.trilha-sep { color: var(--borda); user-select: none; }
+
+.trilha-sep {
+  color: var(--ouro);
+  opacity: 0.5;
+  font-size: 7px;
+  user-select: none;
+  line-height: 1;
+}
 
 .topo-controles {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
   flex-wrap: wrap;
 }
 
 .campo-ed {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 13px;
-  color: var(--texto-2);
+  gap: 8px;
+  font-family: var(--capitular);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cinza-fraco);
 }
 
 .campo-ed select {
-  background: var(--fundo-3);
-  color: var(--texto);
-  border: 1px solid var(--borda);
-  border-radius: 6px;
-  padding: 5px 8px;
-  font: inherit;
-  font-size: 13px;
+  background: var(--tela-2);
+  color: var(--osso);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  padding: 6px 9px;
+  font: 300 12.5px/1 var(--interface);
+  letter-spacing: 0.02em;
+  text-transform: none;
   cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
 }
+.campo-ed select:hover { border-color: var(--ouro); color: var(--ouro-claro); }
 
 .status {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  font-size: 12.5px;
-  color: var(--texto-2);
+  gap: 8px;
+  font-size: 12px;
+  color: var(--cinza-fraco);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
+/* Lanterna de estado: ponto com halo próprio */
 .ponto {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--texto-2);
+  background: var(--cinza-fraco);
   flex: none;
 }
-.ponto[data-estado="online"] { background: #5fb87a; }
-.ponto[data-estado="offline"] { background: var(--erro); }
-.ponto[data-estado="checando"] { background: var(--realce); animation: pulsa 1.2s ease-in-out infinite; }
+.ponto[data-estado="online"] { background: var(--lumina); box-shadow: 0 0 10px rgba(134, 213, 205, 0.8); }
+.ponto[data-estado="offline"] { background: var(--erro); box-shadow: 0 0 10px rgba(212, 120, 140, 0.6); }
+.ponto[data-estado="checando"] { background: var(--ouro); animation: pulsa 1.6s ease-in-out infinite; }
 
-@keyframes pulsa { 50% { opacity: 0.3; } }
+@keyframes pulsa {
+  50% { opacity: 0.25; box-shadow: 0 0 14px rgba(200, 168, 86, 0.9); }
+}
 
 /* ==============================
  * Telas
  * ============================== */
 
 main {
-  max-width: 1280px;
+  position: relative;
+  z-index: 1;
+  max-width: 1320px;
   margin: 0 auto;
-  padding: 28px 20px 64px;
+  padding: 44px 24px 96px;
+}
+
+.tela { position: relative; }
+
+/* Numeral do ato em marca d'água: contorno de ouro sem preenchimento, atrás
+ * do título como uma capitular de gravura. Fica à esquerda, e não à direita,
+ * porque ali cruzaria o campo de filtro. */
+.tela::before {
+  content: attr(data-ato);
+  position: absolute;
+  top: -50px;
+  left: -16px;
+  z-index: -1;
+  font-family: var(--capitular);
+  font-weight: 600;
+  font-size: 150px;
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(200, 168, 86, 0.16);
+  pointer-events: none;
+  user-select: none;
 }
 
 .tela-cabeca {
+  position: relative;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: 30px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--linha);
+}
+
+/* Realce de ouro no começo do fio da cabeça, morrendo à direita */
+.tela-cabeca::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: min(280px, 45%);
+  height: 1px;
+  background: linear-gradient(to right, var(--ouro), transparent);
+}
+
+.cabeca-texto { min-width: 0; }
+
+/* Marcador do ato: numeral em caixa de fio + rótulo espacejado */
+.ato {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+}
+
+.ato-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border: 1px solid rgba(200, 168, 86, 0.4);
+  font-family: var(--capitular);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ouro);
+}
+
+.ato-rotulo {
+  font-family: var(--capitular);
+  font-size: 10.5px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--cinza-fraco);
 }
 
 .tela-cabeca h2 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 600;
+  font-family: var(--serifada);
+  font-size: clamp(30px, 5vw, 44px);
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--osso);
 }
 
 .sub {
-  margin: 4px 0 0;
-  color: var(--texto-2);
-  font-size: 13.5px;
+  margin: 8px 0 0;
+  color: var(--cinza);
+  font-size: 13px;
+  letter-spacing: 0.03em;
 }
 
 .filtro {
-  background: var(--fundo-2);
-  border: 1px solid var(--borda);
-  border-radius: 8px;
-  color: var(--texto);
-  font: inherit;
-  font-size: 14px;
-  padding: 8px 12px;
+  background: rgba(18, 16, 22, 0.8);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  color: var(--osso);
+  font: 300 14px/1.4 var(--interface);
+  padding: 10px 14px;
   min-width: 220px;
-  flex: 0 1 280px;
+  flex: 0 1 300px;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.filtro::placeholder {
+  color: var(--cinza-fraco);
+  font-family: var(--serifada);
+  font-style: italic;
+  font-size: 15px;
 }
 .filtro:focus {
   outline: none;
-  border-color: var(--realce);
-  box-shadow: 0 0 0 3px var(--realce-suave);
+  background: var(--tela-1);
+  border-color: var(--ouro);
+  box-shadow: 0 0 0 1px rgba(200, 168, 86, 0.25), 0 0 26px -6px rgba(200, 168, 86, 0.4);
+}
+
+/* ==============================
+ * Entrada dos cartões
+ * ============================== */
+
+/* Sobem da penumbra, escalonados por --i (vindo do JS). O teto em 24 evita
+ * que o último cartão de uma grade grande espere segundos para aparecer. */
+@keyframes surgir {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.cartao-estilo,
+.cartao-artista,
+.cartao-obra {
+  animation: surgir 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  animation-delay: calc(min(var(--i, 0), 24) * 26ms);
 }
 
 /* ==============================
@@ -196,40 +472,66 @@ main {
 
 .grade-estilos {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 14px;
 }
 
 .cartao-estilo {
-  background: var(--fundo-2);
-  border: 1px solid var(--borda);
+  position: relative;
+  background: linear-gradient(155deg, var(--tela-2), var(--tela-1) 70%);
+  border: 1px solid var(--linha);
   border-radius: var(--raio);
-  padding: 16px 16px 14px;
+  padding: 20px 20px 18px;
   text-align: left;
   color: inherit;
-  font: inherit;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+  overflow: hidden;
+  transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
 }
+
+/* Lâmina de luz que varre o cartão no hover */
+.cartao-estilo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(240, 220, 168, 0.09) 50%, transparent 65%);
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+.cartao-estilo:hover::before { transform: translateX(100%); }
+
 .cartao-estilo:hover {
-  border-color: var(--realce);
-  background: var(--fundo-3);
-  transform: translateY(-2px);
+  border-color: rgba(200, 168, 86, 0.5);
+  transform: translateY(-3px);
+  box-shadow: 0 16px 34px -20px rgba(0, 0, 0, 0.9), 0 0 30px -18px rgba(200, 168, 86, 0.7);
 }
 
 .cartao-estilo h3 {
-  margin: 0 0 8px;
-  font-size: 15.5px;
-  font-weight: 600;
+  margin: 0 0 12px;
+  font-family: var(--serifada);
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--osso);
+  transition: color 0.25s;
 }
+.cartao-estilo:hover h3 { color: var(--ouro-claro); }
 
 .cartao-numeros {
   display: flex;
-  gap: 14px;
-  font-size: 12.5px;
-  color: var(--texto-2);
+  gap: 16px;
+  font-family: var(--capitular);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--cinza-fraco);
 }
-.cartao-numeros b { color: var(--realce); font-weight: 600; }
+.cartao-numeros b {
+  color: var(--ouro);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
 
 /* ==============================
  * Grade de artistas
@@ -237,26 +539,36 @@ main {
 
 .grade-artistas {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 8px;
 }
 
+/* Linha de índice, não cartão: o nome manda, o fio da esquerda acende e o
+ * texto avança um passo quando o cursor entra. */
 .cartao-artista {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  background: var(--fundo-2);
-  border: 1px solid var(--borda);
-  border-radius: 8px;
-  padding: 10px 14px;
-  color: inherit;
-  font: inherit;
+  gap: 12px;
+  background: rgba(26, 23, 31, 0.5);
+  border: 0;
+  border-left: 1px solid var(--linha);
+  padding: 11px 14px;
+  color: var(--osso);
+  font-family: var(--serifada);
+  font-size: 17px;
+  font-weight: 400;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.2s, background 0.2s, padding-left 0.2s, color 0.2s;
 }
-.cartao-artista:hover { border-color: var(--realce); background: var(--fundo-3); }
+.cartao-artista:hover {
+  background: rgba(35, 32, 41, 0.85);
+  border-left-color: var(--ouro);
+  padding-left: 18px;
+  color: var(--ouro-claro);
+}
 
 .cartao-artista .nome {
   overflow: hidden;
@@ -266,44 +578,55 @@ main {
 
 .pilula {
   flex: none;
-  background: var(--realce-suave);
-  color: var(--realce);
-  border-radius: 20px;
-  padding: 2px 9px;
-  font-size: 12px;
+  color: var(--cinza-fraco);
+  font-family: var(--interface);
+  font-size: 11px;
+  letter-spacing: 0.1em;
   font-variant-numeric: tabular-nums;
+  transition: color 0.2s;
 }
+.cartao-artista:hover .pilula { color: var(--ouro); }
 
 /* ==============================
  * Métricas da engine
  * ============================== */
 
+/* Painel de leitura do instrumento: os fios de 1px entre as células saem do
+ * fundo da caixa aparecendo pelo gap — assim as divisórias não dobram. */
 .metricas {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 22px;
+  gap: 1px;
+  margin-bottom: 30px;
+  background: var(--linha);
+  border: 1px solid var(--linha);
 }
 
 .metrica {
-  background: var(--fundo-2);
-  border: 1px solid var(--borda);
-  border-radius: 8px;
-  padding: 8px 14px;
-  min-width: 118px;
+  flex: 1 1 150px;
+  min-width: 0;
+  margin: 0;   /* dl tem margem de bloco por padrao; sem zerar, o fundo vaza */
+  background: linear-gradient(to bottom, var(--tela-1), rgba(10, 9, 12, 0.9));
+  padding: 12px 16px;
 }
 .metrica dt {
   margin: 0;
-  font-size: 11px;
+  font-family: var(--capitular);
+  font-size: 9.5px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--texto-2);
+  letter-spacing: 0.22em;
+  color: var(--cinza-fraco);
 }
 .metrica dd {
-  margin: 2px 0 0;
-  font-size: 14.5px;
-  font-weight: 600;
+  margin: 5px 0 0;
+  font-family: var(--serifada);
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--ouro-claro);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ==============================
@@ -312,25 +635,56 @@ main {
 
 .grade-obras {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 20px;
 }
 
 .cartao-obra {
-  background: var(--fundo-2);
-  border: 1px solid var(--borda);
+  position: relative;
+  background: var(--tela-1);
+  border: 1px solid var(--linha);
   border-radius: var(--raio);
-  overflow: hidden;
   cursor: zoom-in;
   display: flex;
   flex-direction: column;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
 }
-.cartao-obra:hover { border-color: var(--realce); transform: translateY(-2px); }
+.cartao-obra:hover {
+  border-color: rgba(200, 168, 86, 0.55);
+  transform: translateY(-4px);
+  box-shadow: 0 22px 44px -24px rgba(0, 0, 0, 1), 0 0 40px -22px rgba(200, 168, 86, 0.65);
+}
+
+/* Colchetes de canto: um só contorno recortado por máscara — quatro
+ * quadradinhos de 14px deixam passar apenas as quinas da borda. Sai mais
+ * barato que oito pseudo-elementos e anima numa propriedade só. */
+.cartao-obra::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  z-index: 2;
+  pointer-events: none;
+  border: 1px solid var(--ouro);
+  opacity: 0;
+  /* A sombra destaca o fio de ouro nas telas claras, onde o contraste some */
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.85));
+  transition: opacity 0.3s, inset 0.3s;
+  -webkit-mask:
+    linear-gradient(#000, #000) top left / 14px 14px no-repeat,
+    linear-gradient(#000, #000) top right / 14px 14px no-repeat,
+    linear-gradient(#000, #000) bottom left / 14px 14px no-repeat,
+    linear-gradient(#000, #000) bottom right / 14px 14px no-repeat;
+  mask:
+    linear-gradient(#000, #000) top left / 14px 14px no-repeat,
+    linear-gradient(#000, #000) top right / 14px 14px no-repeat,
+    linear-gradient(#000, #000) bottom left / 14px 14px no-repeat,
+    linear-gradient(#000, #000) bottom right / 14px 14px no-repeat;
+}
+.cartao-obra:hover::after { opacity: 0.85; inset: 4px; }
 
 .moldura {
   aspect-ratio: 1 / 1;
-  background: var(--fundo-3);
+  background: var(--abismo);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -338,29 +692,55 @@ main {
   position: relative;
 }
 
+/* Passe-partout: filete claro por dentro da moldura, como num quadro */
+.moldura::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid rgba(236, 228, 214, 0.07);
+  transition: border-color 0.3s;
+}
+.cartao-obra:hover .moldura::after { border-color: rgba(200, 168, 86, 0.3); }
+
 .moldura img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
   opacity: 0;
-  transition: opacity 0.3s;
+  /* Obscur: a tela entra rebaixada e dessaturada... */
+  filter: grayscale(0.3) saturate(0.8) brightness(0.72) contrast(1.06);
+  transition: opacity 0.6s ease, filter 0.5s ease, transform 0.6s ease;
 }
 .moldura img.pronta { opacity: 1; }
+/* ...clair: e só acende quando o olhar pousa nela. */
+.cartao-obra:hover .moldura img.pronta {
+  filter: none;
+  transform: scale(1.05);
+}
 
 .moldura .falha {
-  color: var(--texto-2);
-  font-size: 12px;
+  color: var(--cinza-fraco);
+  font-family: var(--serifada);
+  font-style: italic;
+  font-size: 14px;
   text-align: center;
   padding: 12px;
 }
 
-.obra-info { padding: 10px 12px 12px; }
+.obra-info {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--linha);
+}
 
 .obra-titulo {
-  font-size: 13.5px;
-  line-height: 1.35;
   margin: 0;
+  font-family: var(--serifada);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.28;
+  color: var(--osso);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -368,11 +748,15 @@ main {
 }
 
 .obra-ano {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--texto-2);
+  margin: 6px 0 0;
+  font-family: var(--capitular);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  color: var(--cinza-fraco);
   font-variant-numeric: tabular-nums;
+  transition: color 0.3s;
 }
+.cartao-obra:hover .obra-ano { color: var(--ouro); }
 
 .sentinela { height: 1px; }
 
@@ -384,12 +768,16 @@ main {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(8, 7, 6, 0.94);
+  background: radial-gradient(ellipse at center, rgba(12, 10, 14, 0.9), rgba(4, 3, 6, 0.985));
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 20px;
+  padding: 40px 24px;
+  animation: abrir 0.3s ease both;
 }
+
+@keyframes abrir { from { opacity: 0; } to { opacity: 1; } }
 
 .visor-figura {
   margin: 0;
@@ -398,78 +786,147 @@ main {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
+  gap: 20px;
+  animation: montar 0.4s cubic-bezier(0.2, 0.7, 0.3, 1) both;
 }
 
-.visor-figura img {
+@keyframes montar {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Moldura em fio duplo dourado em volta da tela ampliada */
+.visor-moldura {
+  position: relative;
   max-width: 100%;
-  max-height: 78vh;
-  object-fit: contain;
-  border-radius: 4px;
-  box-shadow: var(--sombra);
+  padding: 10px;
+  border: 1px solid rgba(200, 168, 86, 0.45);
+  background: rgba(10, 9, 12, 0.6);
+  box-shadow: var(--sombra), 0 0 90px -40px rgba(200, 168, 86, 0.55);
+}
+.visor-moldura::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  pointer-events: none;
+  border: 1px solid rgba(236, 228, 214, 0.1);
 }
 
+.visor-moldura img {
+  display: block;
+  max-width: 100%;
+  max-height: 74vh;
+  object-fit: contain;
+}
+
+/* Legenda como plaqueta de museu */
 .visor-figura figcaption {
-  color: var(--texto-2);
-  font-size: 13.5px;
+  color: var(--cinza);
+  font-family: var(--serifada);
+  font-style: italic;
+  font-size: 16px;
+  line-height: 1.5;
   text-align: center;
-  max-width: 60ch;
+  max-width: 62ch;
+  padding-top: 14px;
+  border-top: 1px solid var(--linha);
 }
 
 .visor-fechar {
   position: absolute;
-  top: calc(16px + env(safe-area-inset-top, 0px));
-  right: 20px;
-  background: var(--fundo-3);
-  border: 1px solid var(--borda);
-  color: var(--texto);
-  width: 38px;
-  height: 38px;
+  top: calc(20px + env(safe-area-inset-top, 0px));
+  right: 24px;
+  background: transparent;
+  border: 1px solid var(--linha-viva);
+  color: var(--cinza);
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   font-size: 22px;
   line-height: 1;
   cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, transform 0.3s;
 }
-.visor-fechar:hover { border-color: var(--realce); }
+.visor-fechar:hover {
+  color: var(--ouro-claro);
+  border-color: var(--ouro);
+  transform: rotate(90deg);
+}
 
 /* ==============================
  * Estados
  * ============================== */
 
 .aviso {
-  background: var(--fundo-2);
-  border: 1px solid var(--borda);
-  border-left: 3px solid var(--erro);
-  border-radius: 8px;
-  padding: 14px 16px;
-  color: var(--texto-2);
+  background: linear-gradient(to right, rgba(212, 120, 140, 0.07), transparent 60%);
+  border: 1px solid var(--linha);
+  border-left: 2px solid var(--erro);
+  padding: 16px 20px;
+  color: var(--cinza);
   font-size: 14px;
-  margin-top: 20px;
+  margin-top: 26px;
 }
-.aviso b { color: var(--texto); }
+.aviso b {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--osso);
+  font-family: var(--serifada);
+  font-size: 18px;
+  font-weight: 400;
+}
 .aviso code {
-  background: var(--fundo-3);
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 13px;
+  display: inline-block;
+  margin-top: 4px;
+  background: var(--abismo);
+  border: 1px solid var(--linha);
+  color: var(--ouro-claro);
+  padding: 3px 9px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 12.5px;
 }
 
 .vazio {
-  color: var(--texto-2);
-  font-size: 14px;
-  padding: 28px 0;
   grid-column: 1 / -1;
+  color: var(--cinza-fraco);
+  font-family: var(--serifada);
+  font-style: italic;
+  font-size: 18px;
+  text-align: center;
+  padding: 54px 0;
+  border: 1px dashed var(--linha);
 }
 
+/* ==============================
+ * Telas estreitas
+ * ============================== */
+
 @media (max-width: 640px) {
-  .topo-conteudo { gap: 12px; padding: 10px 16px; }
-  main { padding: 20px 16px 48px; }
+  .topo-conteudo { gap: 12px; padding: 10px 16px 12px; }
+  .marca-nome { font-size: 15px; letter-spacing: 0.14em; }
+  .marca-sub { font-size: 15px; }
+  main { padding: 28px 16px 64px; }
+  /* Numeral menor e mais alto no celular: na largura estreita ele cruzaria
+     o título inteiro em vez de ficar só atrás dele. */
+  .tela::before { font-size: 104px; top: -20px; left: -8px; }
   .grade-obras { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .obra-titulo { font-size: 14.5px; }
   .filtro { flex: 1 1 100%; }
+  .status { font-size: 11px; }
 
   /* Em coluna estreita o flex-wrap deixa as métricas em degraus irregulares,
      porque "Algoritmo" é muito mais largo que as outras. Um 2x2 fecha certo:
      as quatro métricas preenchem a grade sem sobrar buraco. */
-  .metricas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .metricas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; }
   .metrica { min-width: 0; }
+  .metrica dd { font-size: 17px; }
+}
+
+/* Quem pediu menos movimento fica só com o tema: sem pétalas, sem varreduras. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .particulas { display: none; }
 }

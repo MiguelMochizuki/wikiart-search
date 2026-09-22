@@ -3,18 +3,34 @@
   index.html
   Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
   Descrição: Interface web da busca WikiArt. Navegação estilo -> artista -> obras.
+              Os três níveis são apresentados como atos (I, II, III) — o tema
+              visual é de diário de expedição, com tipografia inscricional.
 -->
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>WikiArt Search</title>
+  <meta name="theme-color" content="#0a090c">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Cinzel: capitulares inscricionais (marca e numerais). Cormorant: títulos
+       e legendas. Jost: texto de interface. Se as fontes não carregarem, o
+       estilo.css cai em serifadas/sans do sistema sem quebrar o layout. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap">
   <link rel="stylesheet" href="estilo.css">
 </head>
 <body>
+  <!-- Pétalas à deriva. Povoadas pelo app.js e desligadas em prefers-reduced-motion. -->
+  <div class="particulas" id="particulas" aria-hidden="true"></div>
+
   <header class="topo">
     <div class="topo-conteudo">
-      <h1 class="marca">WikiArt <span>Search</span></h1>
+      <a class="marca" href="#/" aria-label="Voltar aos estilos">
+        <span class="marca-nome">WikiArt</span>
+        <span class="marca-orn" aria-hidden="true"></span>
+        <span class="marca-sub">Search</span>
+      </a>
 
       <nav class="trilha" id="trilha" aria-label="Navegação">
         <button class="trilha-item" data-nivel="estilos" type="button">Estilos</button>
@@ -37,9 +53,10 @@
 
   <main id="palco">
     <!-- Nível 1: estilos -->
-    <section id="tela-estilos" class="tela">
+    <section id="tela-estilos" class="tela" data-ato="I">
       <div class="tela-cabeca">
-        <div>
+        <div class="cabeca-texto">
+          <p class="ato"><span class="ato-num">I</span><span class="ato-rotulo">Estilos</span></p>
           <h2>Escolha um estilo</h2>
           <p class="sub" id="resumo-estilos"></p>
         </div>
@@ -50,9 +67,10 @@
     </section>
 
     <!-- Nível 2: artistas -->
-    <section id="tela-artistas" class="tela" hidden>
+    <section id="tela-artistas" class="tela" data-ato="II" hidden>
       <div class="tela-cabeca">
-        <div>
+        <div class="cabeca-texto">
+          <p class="ato"><span class="ato-num">II</span><span class="ato-rotulo">Artistas</span></p>
           <h2 id="titulo-artistas"></h2>
           <p class="sub" id="resumo-artistas"></p>
         </div>
@@ -63,9 +81,10 @@
     </section>
 
     <!-- Nível 3: obras -->
-    <section id="tela-obras" class="tela" hidden>
+    <section id="tela-obras" class="tela" data-ato="III" hidden>
       <div class="tela-cabeca">
-        <div>
+        <div class="cabeca-texto">
+          <p class="ato"><span class="ato-num">III</span><span class="ato-rotulo">Obras</span></p>
           <h2 id="titulo-obras"></h2>
           <p class="sub" id="resumo-obras"></p>
         </div>
@@ -83,10 +102,15 @@
   <div class="visor" id="visor" hidden>
     <button class="visor-fechar" id="visor-fechar" type="button" aria-label="Fechar">&times;</button>
     <figure class="visor-figura">
-      <img id="visor-img" alt="">
+      <div class="visor-moldura">
+        <img id="visor-img" alt="">
+      </div>
       <figcaption id="visor-legenda"></figcaption>
     </figure>
   </div>
+
+  <!-- Grão de tela sobre toda a interface: tira o aspecto liso de gradiente puro. -->
+  <div class="grao" aria-hidden="true"></div>
 
   <script src="app.js"></script>
 </body>

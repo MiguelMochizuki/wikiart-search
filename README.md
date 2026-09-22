@@ -189,6 +189,13 @@ docker compose up -d                    # sobe engine (8080) e interface (3000)
 
 Abra <http://localhost:3000>.
 
+O tema é um claro-escuro de ateliê: fundo de noite, fios de ouro velho e
+numerais romanos marcando os três níveis. As miniaturas entram rebaixadas e só
+acendem sob o cursor. As fontes (Cinzel, Cormorant Garamond e Jost) vêm do
+Google Fonts; sem rede a interface cai nas serifadas e sans do sistema, sem
+quebrar o layout. Quem usa `prefers-reduced-motion` não vê as animações nem as
+pétalas de fundo.
+
 As listas de estilos e de artistas por estilo saem do `web/indice.json`, um
 arquivo estático de ~86 KB gerado do próprio `metadados.csv`. A engine só
 responde obras, então montar essas listas pela API custaria baixar o gênero
