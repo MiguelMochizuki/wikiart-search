@@ -10,111 +10,148 @@ Desenvolvido para a disciplina de Estruturas de Dados. Corpus de aproximadamente
 Navegador (HTML + CSS + JS)  ->  Servidor HTTP em C  ->  Engine de busca em C
 ```
 
-A engine em C11 puro implementa os TADs `Obra`, `Resultado`, `Csv` e `Buscador`, além das duas estruturas de busca comparadas.
+A engine em C11 puro implementa os TADs `Obra`, `Resultado`, `Csv`,
+`Catalogo` e `Indice`, as duas estruturas de busca comparadas e a interface
+`Buscador`, uma vtable que permite plugar novas EDs no servidor e no benchmark
+com uma linha de código.
 
 ## Estruturas de dados
 
-As duas estruturas indexam pela mesma chave composta **(gênero, artista)**:
-gênero primário, artista secundário. `k` é o número de obras do bloco alcançado.
+A navegação tem três níveis, **estilo → artista → obras**, e cada ED mantém
+três estruturas, uma por nível. As duas EDs são genéricas: recebem na criação a
+ordem entre itens e, a cada busca, um comparador que recorta um intervalo
+contíguo dessa ordem.
 
-| Estrutura | Como aplica a chave | Busca por artista | Busca por gênero | Gênero + artista | Inserção |
-|---|---|---|---|---|---|
-| SkipList (probabilística) | nível 0 ordenado pela chave composta | O(n) | O(log n + k) esperado | O(log n + k) esperado | O(log n) esperado |
-| TabelaOrd (lista indexada) | array ordenado pela chave composta | O(n) | O(log n + k) | O(log n + k) | O(n) |
+| Nível | Itens | Chave de ordenação | Busca da navegação |
+|---|---|---|---|
+| 1. Gêneros | 27 estilos, com contagens e capa | nome | todos (listagem) ou um gênero |
+| 2. Artistas | 2.082 pares (gênero, artista), com contagem e capa | (gênero, artista) | os artistas de um gênero |
+| 3. Obras | 80.042 obras | (gênero, artista, id) | as obras de um artista num gênero |
 
-Ambas mantêm a mesma ordem total sobre a chave composta; o que muda é como
-chegam ao bloco procurado. A **TabelaOrd** guarda tudo num array ordenado e
-faz busca binária de verdade, porque tem acesso aleatório. A **SkipList**
-ordena o nível 0 e desce pelos níveis sorteados, o que dá o mesmo custo em
-esperança, não garantido — em troca, insere sem deslocar nada.
+No nível 2, quem pintou em mais de um gênero aparece uma vez em cada, com a
+contagem daquele gênero. Ordenar pelo gênero primeiro deixa os artistas de um
+gênero contíguos, e é isso que permite buscá-los pela chave parcial. No nível 3
+o id desempata as obras de um mesmo par e deixa cada chave única, que é o que a
+árvore precisa para levar uma obra específica ao topo.
 
-O efeito é comum às duas: gênero e o par gênero+artista ficam rápidos, e a
-busca só por artista degenera em varredura completa, porque as obras de um
-mesmo artista ficam espalhadas entre os blocos de gênero.
+Os itens dos dois primeiros níveis saem do `Catalogo`, que a engine monta do
+próprio CSV na subida. Cada gênero e cada artista leva uma **obra de capa**:
+a do artista é a primeira obra dele no gênero, e a do gênero é a capa do seu
+artista mais prolífico (Pollock no Action Painting, Picasso no Cubismo
+Analítico).
 
-Cada estrutura implementa a interface `Buscador`, uma vtable que permite plugar novas EDs no benchmark com uma linha de código.
+| Estrutura | Busca por chave | Inserção | Forma |
+|---|---|---|---|
+| TabelaOrd (lista indexada) | O(log n + k) | O(n) | array contíguo |
+| ArvoreAfunilada (splay tree) | O(log n + k) amortizado | O(log n) amortizado | nós com três ponteiros (filhos e pai) |
+
+`k` é o número de itens do intervalo encontrado.
+
+A **TabelaOrd** guarda tudo num array ordenado: busca binária de limite
+inferior até o começo do intervalo e coleta enquanto o comparador der zero.
+Inserir no meio obriga a deslocar a cauda.
+
+A **ArvoreAfunilada** é uma árvore binária de busca sem balanceamento
+explícito. Todo acesso leva o nó acessado até a raiz por rotações, dois níveis
+por passo: zig-zig quando nó, pai e avô estão alinhados, zig-zag quando fazem
+cotovelo, e zig quando só falta o pai. Afunilar um nó de profundidade `d` custa
+exatamente `d` rotações. O que foi usado há pouco fica perto do topo, e o custo
+amortizado de cada operação é O(log n), mas uma operação isolada pode custar
+O(n), e até as buscas alteram a estrutura. Na busca de um intervalo, a descida
+para no primeiro nó de dentro, que é o mais alto do intervalo, e é ele que sobe
+à raiz. Depois disso o intervalo inteiro fica abaixo da raiz, e a coleta anda
+de sucessor em sucessor. Busca sem achado também afunila, com o último nó do
+caminho. Nenhum percurso é recursivo: a árvore pode virar uma lista, e os
+ponteiros para o pai permitem percorrer e liberar tudo sem pilha.
+
+A ordem de carga é embaralhada com semente fixa, e as duas EDs recebem a mesma.
+O CSV vem agrupado por artista e com ids crescentes. Carregado assim, cada
+bloco (gênero, artista) entraria em ordem crescente, e a árvore, que leva cada
+nó novo à raiz, viraria uma lista encadeada pela esquerda em cada bloco.
 
 ## Resultados
 
-Benchmark sobre 80.042 obras, com 10.000 buscas por operação. Dados brutos em
+Benchmark sobre 80.042 obras, com 10.000 buscas por operação. Cada busca
+sorteia uma obra e usa a chave dela até o nível medido, então gêneros e
+artistas pesam na proporção do acervo, como numa navegação real. As duas EDs
+respondem à mesma sequência de consultas. Dados brutos em
 `assets/bench_80k.csv`.
 
-| Estrutura | Operação | Tempo médio (ms) | Comparações médias |
-|---|---|---|---|
-| skip_list | buscar_artista | 2.3558 | 80042.00 |
-| skip_list | buscar_genero | 0.1558 | 6420.70 |
-| skip_list | buscar_genero_artista | 0.0094 | 284.12 |
-| tabela_ord | buscar_artista | **1.6900** | 80042.00 |
-| tabela_ord | buscar_genero | **0.1506** | **6312.01** |
-| tabela_ord | buscar_genero_artista | **0.0091** | **267.74** |
+| Estrutura | Operação | Tempo médio (µs) | Comparações médias | Rotações médias |
+|---|---|---|---|---|
+| tabela_ord | buscar_genero | **0,12** | **6,88** | 0 |
+| tabela_ord | buscar_artistas_genero | **1,71** | **147,55** | 0 |
+| tabela_ord | buscar_obras_artista | **5,36** | **268,91** | 0 |
+| arvore_afunilada | buscar_genero | 0,16 | 7,77 | 3,24 |
+| arvore_afunilada | buscar_artistas_genero | 2,25 | 149,16 | 3,25 |
+| arvore_afunilada | buscar_obras_artista | 13,45 | 276,37 | 10,71 |
 
-Custo de carga das 80.042 obras:
+Custo de carga dos três níveis (27 + 2.082 + 80.042 itens):
 
 | Estrutura | Inserção (ms) |
 |---|---|
-| tabela_ord | 138.29 |
-| skip_list | **55.05** |
+| tabela_ord | 316,25 |
+| arvore_afunilada | **95,47** |
 
-### Busca por artista, número médio de comparações
+### Busca de um gênero, número médio de comparações
 
-![Busca por artista, comparações](assets/graficos/bench_80k_buscar_artista_comparacoes.png)
+![Busca de um gênero, comparações](assets/graficos/bench_80k_buscar_genero_comparacoes.png)
 
-### Busca por artista, tempo médio
+### Busca de um gênero, tempo médio
 
-![Busca por artista, tempo](assets/graficos/bench_80k_buscar_artista_tempo.png)
+![Busca de um gênero, tempo](assets/graficos/bench_80k_buscar_genero_tempo.png)
 
-### Busca por gênero, número médio de comparações
+### Busca dos artistas de um gênero, número médio de comparações
 
-![Busca por gênero, comparações](assets/graficos/bench_80k_buscar_genero_comparacoes.png)
+![Busca dos artistas de um gênero, comparações](assets/graficos/bench_80k_buscar_artistas_genero_comparacoes.png)
 
-### Busca por gênero, tempo médio
+### Busca dos artistas de um gênero, tempo médio
 
-![Busca por gênero, tempo](assets/graficos/bench_80k_buscar_genero_tempo.png)
+![Busca dos artistas de um gênero, tempo](assets/graficos/bench_80k_buscar_artistas_genero_tempo.png)
 
-### Busca por gênero e artista, número médio de comparações
+### Busca das obras de um artista, número médio de comparações
 
-![Busca por gênero e artista, comparações](assets/graficos/bench_80k_buscar_genero_artista_comparacoes.png)
+![Busca das obras de um artista, comparações](assets/graficos/bench_80k_buscar_obras_artista_comparacoes.png)
 
-### Busca por gênero e artista, tempo médio
+### Busca das obras de um artista, tempo médio
 
-![Busca por gênero e artista, tempo](assets/graficos/bench_80k_buscar_genero_artista_tempo.png)
+![Busca das obras de um artista, tempo](assets/graficos/bench_80k_buscar_obras_artista_tempo.png)
 
-**Busca por gênero.** As duas empatam em torno de 6.300 comparações, e não é
-coincidência: esse é o tamanho médio do bloco de um gênero, ponderado pela
-chance de cada gênero ser sorteado. Chegar ao bloco é barato nas duas, seja por
-busca binária ou descida de níveis. O que sobra é copiar o resultado, e isso
-nenhuma das duas evita.
+**Busca de um gênero.** A tabela faz 6,88 comparações: busca binária sobre 27
+itens (log₂ 27 ≈ 4,75) mais as duas da coleta. A árvore faz 7,77, e as 3,24
+rotações dizem a profundidade média em que o gênero estava. Uma árvore
+perfeitamente balanceada de 27 nós tem profundidade média 3,04, e a afunilada
+chega perto disso sem balancear nada, porque as consultas são enviesadas:
+38% delas caem em Impressionism, Realism e Romanticism, e a entropia da
+distribuição é 4,07 bits, contra os 4,75 de uma uniforme. O que é muito
+pedido fica perto do topo. A diferença que resta vem da coleta genérica de
+intervalo: para confirmar que não há outro item do intervalo à esquerda da
+raiz, a árvore desce a espinha direita da subárvore esquerda.
 
-**Busca por gênero e artista.** A consulta que a chave composta foi desenhada
-para servir, e a mais rápida das duas estruturas: TabelaOrd em 268 comparações
-e SkipList em 284, contra as ~6.300 do gênero inteiro. Ambas localizam o bloco
-do par exato e só percorrem ele, então o corte de uma ordem de grandeza vem da
-chave, não da estrutura. Os 6% que separam as duas são o preço de a SkipList
-ser sorteada: os níveis aproximam a busca binária em esperança, não a
-reproduzem.
+**Busca dos artistas de um gênero.** 147,55 contra 149,16 comparações, quase
+tudo coleta: o gênero sorteado tem em média 135 artistas, e as duas pagam uma
+comparação por artista coletado. Chegar ao bloco custa cerca de 11 comparações
+na tabela e 13 na árvore.
 
-**Busca por artista.** Degenera nas duas, como esperado de uma chave
-secundária: sem o gênero não há por onde entrar no índice, e as obras de um
-mesmo artista estão espalhadas por todos os blocos. Ambas pagam as 80.042
-comparações cheias. O que difere é só o relógio — 1,69 ms da TabelaOrd contra
-2,36 ms da SkipList, 28% a menos para a mesma varredura. É localidade de
-memória: um array contíguo percorre mais rápido que nós encadeados espalhados
-pelo heap.
+**Busca das obras de um artista.** As comparações quase empatam (268,91 contra
+276,37), porque o bloco médio tem 251 obras e a coleta domina nas duas. O
+relógio não empata: 5,36 µs da tabela contra 13,45 µs da árvore, 2,5x. É
+localidade de memória. A tabela percorre um array contíguo, e a árvore salta
+entre 80 mil nós espalhados pelo heap, andando de sucessor em sucessor pelos
+ponteiros (às vezes subindo pelos pais), e ainda faz 10,71 rotações por busca,
+cada uma reescrevendo até seis ponteiros.
 
-**Inserção.** Aqui a ordem se inverte. A SkipList carrega as 80.042 obras em 55
-ms contra 138 ms da TabelaOrd, 2,5x mais rápida, e é a diferença entre O(log n)
-esperado e O(n): inserir no meio de um array ordenado obriga a deslocar toda a
-cauda, enquanto a SkipList só religa ponteiros. É a contrapartida direta do
-acesso aleatório que faz a TabelaOrd ganhar nas buscas.
+**Inserção.** Aqui a ordem se inverte. A árvore carrega os três níveis em 95 ms
+contra 316 ms da tabela, 3,3x mais rápida, e é a diferença entre O(log n)
+amortizado e O(n): com a carga embaralhada, cada inserção no meio do array
+desloca em média metade da cauda, enquanto a árvore só desce e religa
+ponteiros.
 
-**O balanço.** A chave composta acertou o alvo: `buscar_genero_artista`, a
-consulta que a interface realmente faz na navegação estilo → artista → obras,
-é a operação mais rápida das duas estruturas. O custo foi empurrado para a
-busca só por artista, que nenhuma tela usa. Entre as duas, a escolha é o
-clássico troca-carga-por-consulta: a SkipList constrói o índice 2,5x mais
-rápido, a TabelaOrd responde mais rápido em todas as três buscas. Como este
-índice é montado uma vez na subida do servidor e consultado a cada navegação, a
-TabelaOrd é o padrão da interface.
+**O balanço.** A tabela responde mais rápido nos três níveis, e a árvore
+constrói o índice 3,3x mais rápido e se adapta ao uso, o que a tabela não faz.
+Como o índice é montado uma vez na subida do servidor e consultado a cada
+navegação, a tabela é o padrão da interface. A árvore entra como a vista que
+mostra a estrutura trabalhando.
 
 ## Estrutura de pastas
 
@@ -153,7 +190,7 @@ make
 make test
 ```
 
-A suíte tem 58 testes. Para checar vazamentos:
+A suíte tem 73 testes. Para checar vazamentos:
 
 ```bash
 make test-valgrind
@@ -165,10 +202,10 @@ make test-valgrind
 ./wikiart_server data/metadados.csv --bench 10000 > ../assets/bench_80k.csv
 cd ..
 
-uv run python scripts/plotar_benchmark.py assets/bench_80k.csv
+uv run python scripts/plotar_benchmark.py assets/bench_80k.csv assets/graficos
 ```
 
-Gera os seis gráficos em `assets/graficos/`, dois por operação medida.
+Gera os seis gráficos em `assets/graficos/`, dois por nível da navegação.
 
 ### 4. Modo de listagem
 
@@ -183,8 +220,7 @@ cd engine
 A navegação é em três níveis: **estilo → artista → obras**.
 
 ```bash
-uv run python scripts/gerar_indice.py   # gera web/indice.json a partir do metadados.csv
-docker compose up -d                    # sobe engine (8080) e interface (3000)
+docker compose up -d --build            # sobe engine (8080) e interface (3000)
 ```
 
 Abra <http://localhost:3000>.
@@ -196,16 +232,39 @@ Google Fonts; sem rede a interface cai nas serifadas e sans do sistema, sem
 quebrar o layout. Quem usa `prefers-reduced-motion` não vê as animações nem as
 pétalas de fundo.
 
-As listas de estilos e de artistas por estilo saem do `web/indice.json`, um
-arquivo estático de ~86 KB gerado do próprio `metadados.csv`. A engine só
-responde obras, então montar essas listas pela API custaria baixar o gênero
-inteiro (13 mil obras no Impressionismo) apenas para extrair nomes. Regenere o
-índice sempre que o `metadados.csv` mudar.
+Os três níveis vêm da engine, cada um da sua estrutura:
 
-A busca do terceiro nível vai em `/api/busca?genero=&artista=&ed=` e exibe as
-métricas que a engine devolve — estrutura, algoritmo, tempo e número de
-comparações. O seletor no topo troca a estrutura e refaz a mesma consulta, o
-que permite comparar as duas lado a lado pela interface.
+| Rota | Nível | Parâmetros |
+|---|---|---|
+| `GET /api/generos` | 1 | `ed`, `foco=<gênero>` |
+| `GET /api/artistas` | 2 | `genero` (obrigatório), `ed`, `foco=<artista>` |
+| `GET /api/busca` | 3 | `genero` (obrigatório), `artista`, `ed`, `foco=<id da obra>` |
+| `GET /api/comparar` | 3 | `genero`, `artista`: a mesma busca nas duas EDs |
+| `GET /api/status` | | |
+
+`ed` é `tabela_ord` (padrão) ou `arvore_afunilada`. Toda resposta traz as
+métricas da busca (estrutura, algoritmo, tempo, comparações e rotações), e a
+interface as mostra no topo das três telas. O seletor no topo troca a estrutura
+e refaz a consulta da tela aberta.
+
+Com a **tabela ordenada**, a resposta é a lista do nível, em ordem de chave, e
+cada tela é uma grade: estilos e artistas com a pintura de capa, obras com
+rolagem infinita.
+
+Com a **árvore afunilada**, a resposta é a vista dos quatro primeiros níveis da
+árvore (1 + 2 + 4 + 8 nós, em layout de heap), e a tela desenha essa
+hierarquia: a raiz ocupa a primeira fileira inteira, e cada nó divide a largura
+do pai com o irmão. Clicar num nó manda o `foco` e o afunila até a raiz, e a
+engine devolve a árvore já reorganizada, com o ramo dele à vista. Clicar na
+raiz abre o próximo nível (os artistas do estilo, as obras do artista) ou, nas
+obras, amplia a pintura. Nos níveis 2 e 3 a vista mostra só o intervalo da
+tela, os artistas daquele estilo ou as obras daquele artista, mantendo entre
+eles a hierarquia real: nós de fora do intervalo que estejam no caminho são
+pulados. Um selo `+N` na última fileira diz quantos itens ficaram abaixo.
+
+As árvores guardam o estado entre requisições, e esse estado é do servidor, não
+do navegador: todos os clientes veem a mesma árvore, com o último acesso de
+qualquer um na raiz.
 
 As imagens vêm direto do endpoint de arquivo único do Kaggle, que é aberto para
 este dataset (CC0) e não exige token:

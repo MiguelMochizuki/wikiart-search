@@ -2,7 +2,7 @@
  * tabela_ord.c
  * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Implementação do TAD TabelaOrd. Lista indexada ordenada
- *            pela chave composta (gênero, artista), com busca binária.
+ *            por um Comparador, com busca binária.
  */
 #define _POSIX_C_SOURCE 200809L
 
@@ -22,9 +22,10 @@
  * ============================== */
 
 struct tabela_ord_t {
-	const Obra** itens;
+	const void** itens;
 	int n;
 	int cap;
+	Comparador cmp_itens;
 };
 
 /* ==============================
@@ -41,51 +42,30 @@ static double agora_ms(void) {
 	return ts.tv_sec * 1000.0 + ts.tv_nsec / 1e6;
 }
 
-/** Compara a chave de uma obra com a chave composta (gênero, artista)
- *
- * Compara primeiro o gênero; só desempata pelo artista quando os
- * gêneros são iguais. O artista é opcional: passar NULL faz a chave
- * procurada valer como "menor que qualquer artista daquele gênero",
- * o que posiciona a busca no início do bloco do gênero.
- *
- * Parâmetros:
- * const Obra* o: obra cuja chave será comparada
- * const char* genero: gênero procurado
- * const char* artista: artista procurado, ou NULL
- *
- * Retorna int: <0, 0 ou >0 conforme a obra seja menor, igual ou maior
- */
-static int cmp_chave(const Obra* o, const char* genero, const char* artista) {
-	int c = strcmp(obra_genero(o), genero);
-	if (c != 0) return c;
-	if (!artista) return 1;
-	return strcmp(obra_artista(o), artista);
-}
-
-/** Encontra o índice da primeira obra com chave >= (gênero, artista)
+/** Encontra o índice do primeiro item que não vem antes da chave
  *
  * Busca binária de limite inferior sobre o intervalo semiaberto
- * [inf, sup). Não sai antecipadamente ao encontrar uma chave igual,
- * porque pode haver outra igual mais à esquerda. Se todas as chaves
- * forem menores, devolve n.
+ * [inf, sup). Não sai antecipadamente ao encontrar um item do
+ * intervalo, porque pode haver outro mais à esquerda. Se todos os
+ * itens vierem antes, devolve n.
  *
  * Parâmetros:
  * const TabelaOrd* t: ponteiro para a tabela
- * const char* genero: gênero procurado
- * const char* artista: artista procurado, ou NULL para o início do bloco
+ * Comparador cmp: comparador item x chave
+ * const void* chave: chave procurada
  * long* comp_out: contador de comparações, incrementado
  *
  * Retorna int: índice encontrado (0 a n)
  */
-static int limite_inferior(const TabelaOrd* t, const char* genero,
-			   const char* artista, long* comp_out) {
+static int limite_inferior(const TabelaOrd* t, Comparador cmp,
+			   const void* chave, long* comp_out) {
 	int inf = 0;
 	int sup = t->n;
 
 	while (inf < sup) {
 		int meio = inf + (sup - inf) / 2;
 		(*comp_out)++;
-		if (cmp_chave(t->itens[meio], genero, artista) < 0) {
+		if (cmp(t->itens[meio], chave) < 0) {
 			inf = meio + 1;
 		} else {
 			sup = meio;
@@ -105,7 +85,7 @@ static int garantir_capacidade(TabelaOrd* t) {
 	if (t->n < t->cap) return 1;
 
 	int nova_cap = t->cap * 2;
-	const Obra** tmp = realloc((void*) t->itens, nova_cap * sizeof *tmp);
+	const void** tmp = realloc((void*) t->itens, nova_cap * sizeof *tmp);
 	if (!tmp) return 0;
 
 	t->itens = tmp;
@@ -119,9 +99,14 @@ static int garantir_capacidade(TabelaOrd* t) {
 
 /** Cria uma tabela ordenada vazia
  *
+ * Parâmetros:
+ * Comparador cmp_itens: ordem total entre itens, usada na inserção
+ *
  * Retorna TabelaOrd*: ponteiro para a tabela alocada, ou NULL em erro
  */
-TabelaOrd* tabela_ord_criar(void) {
+TabelaOrd* tabela_ord_criar(Comparador cmp_itens) {
+	if (!cmp_itens) return NULL;
+
 	TabelaOrd* t = malloc(sizeof *t);
 	if (!t) return NULL;
 
@@ -131,12 +116,13 @@ TabelaOrd* tabela_ord_criar(void) {
 		return NULL;
 	}
 
-	t->n   = 0;
-	t->cap = CAP_INICIAL;
+	t->n         = 0;
+	t->cap       = CAP_INICIAL;
+	t->cmp_itens = cmp_itens;
 	return t;
 }
 
-/** Libera a tabela e o array interno. Não libera as Obras apontadas.
+/** Libera a tabela e o array interno. Não libera os itens apontados.
  *
  * Parâmetros:
  * TabelaOrd* t: ponteiro para a tabela a ser liberada
@@ -147,30 +133,30 @@ void tabela_ord_liberar(TabelaOrd* t) {
 	free(t);
 }
 
-/** Insere uma obra na posição correta, mantendo a ordenação
- *  por (gênero, artista)
+/** Insere um item na posição correta, mantendo a ordenação
  *
  * Parâmetros:
  * TabelaOrd* t: ponteiro para a tabela
- * const Obra* o: ponteiro para a obra (não copiada, só referenciada)
+ * const void* item: ponteiro para o item (não copiado, só referenciado)
  */
-void tabela_ord_inserir(TabelaOrd* t, const Obra* o) {
+void tabela_ord_inserir(TabelaOrd* t, const void* item) {
 	if (!garantir_capacidade(t)) return;
 
+	/* O próprio item faz o papel de chave: o limite inferior é a
+	 * primeira posição que não vem antes dele. */
 	long comp_ignorado = 0;
-	int pos = limite_inferior(t, obra_genero(o), obra_artista(o),
-				  &comp_ignorado);
+	int pos = limite_inferior(t, t->cmp_itens, item, &comp_ignorado);
 
 	/* Abre espaço: move do fim até pos uma posição à frente. */
 	memmove((void*) &t->itens[pos + 1],
-		&t->itens[pos],
+		(const void*) &t->itens[pos],
 		(size_t)(t->n - pos) * sizeof *t->itens);
 
-	t->itens[pos] = o;
+	t->itens[pos] = item;
 	t->n++;
 }
 
-/** Número de obras na tabela
+/** Número de itens na tabela
  *
  * Parâmetros:
  * const TabelaOrd* t: ponteiro para a tabela
@@ -181,95 +167,55 @@ int tabela_ord_tamanho(const TabelaOrd* t) {
 	return t->n;
 }
 
-/** Retorna a Obra no índice dado, ou NULL se inválido
+/** Retorna o item no índice dado, ou NULL se inválido
  *
  * Parâmetros:
  * const TabelaOrd* t: ponteiro para a tabela
  * int indice: posição desejada (0 <= indice < tamanho)
  *
- * Retorna const Obra*: ponteiro para a obra na posição, ou NULL
+ * Retorna const void*: ponteiro para o item na posição, ou NULL
  */
-const Obra* tabela_ord_item(const TabelaOrd* t, int indice) {
+const void* tabela_ord_item(const TabelaOrd* t, int indice) {
 	if (indice < 0 || indice >= t->n) return NULL;
 	return t->itens[indice];
 }
 
 /* ==============================
- * Buscas
+ * Busca
  * ============================== */
 
-/** Busca todas as obras de um artista em um gênero, via busca binária
+/** Busca todos os itens do intervalo descrito pela chave
  *
  * Parâmetros:
  * const TabelaOrd* t: ponteiro para a tabela
- * const char* genero: gênero procurado
- * const char* artista: artista procurado, ou NULL para todo o gênero
+ * Comparador cmp: comparador item x chave, ou NULL para todos
+ * const void* chave: chave procurada (ignorada se cmp for NULL)
  *
  * Retorna Resultado*: resultado com os ponteiros encontrados
  */
-Resultado* tabela_ord_buscar_genero_artista(const TabelaOrd* t,
-					    const char* genero,
-					    const char* artista) {
-	Resultado* r = resultado_criar(16);
+Resultado* tabela_ord_buscar(const TabelaOrd* t, Comparador cmp,
+			     const void* chave) {
+	Resultado* r = resultado_criar(cmp ? 16 : t->n);
 	if (!r) return NULL;
 
 	long comp = 0;
 	double t0 = agora_ms();
 
-	/* Chave composta é a ordenação da lista: o bloco é contíguo. */
-	int pos = limite_inferior(t, genero, artista, &comp);
-
-	/* Coleta as ocorrências consecutivas com a mesma chave. Com
-	 * artista NULL, cmp_chave compara só o gênero. */
-	while (pos < t->n) {
-		comp++;
-		if (artista) {
-			if (cmp_chave(t->itens[pos], genero, artista) != 0) break;
-		} else {
-			if (strcmp(obra_genero(t->itens[pos]), genero) != 0) break;
-		}
-		resultado_adicionar(r, t->itens[pos]);
-		pos++;
-	}
-
-	resultado_set_metricas(r, agora_ms() - t0, comp);
-	return r;
-}
-
-/** Busca todas as obras de um dado gênero, via busca binária
- *
- * Parâmetros:
- * const TabelaOrd* t: ponteiro para a tabela
- * const char* genero: gênero procurado
- *
- * Retorna Resultado*: resultado com os ponteiros encontrados
- */
-Resultado* tabela_ord_buscar_genero(const TabelaOrd* t, const char* genero) {
-	return tabela_ord_buscar_genero_artista(t, genero, NULL);
-}
-
-/** Busca todas as obras de um dado artista, via varredura linear
- *
- * Parâmetros:
- * const TabelaOrd* t: ponteiro para a tabela
- * const char* artista: nome do artista procurado
- *
- * Retorna Resultado*: resultado com os ponteiros encontrados
- */
-Resultado* tabela_ord_buscar_artista(const TabelaOrd* t, const char* artista) {
-	Resultado* r = resultado_criar(16);
-	if (!r) return NULL;
-
-	long comp = 0;
-	double t0 = agora_ms();
-
-	/* Artista é a chave secundária: as obras de um mesmo artista estão
-	 * espalhadas entre os blocos de gênero. Sem partição, não há
-	 * metade a descartar. Varredura completa. */
-	for (int i = 0; i < t->n; i++) {
-		comp++;
-		if (strcmp(obra_artista(t->itens[i]), artista) == 0) {
+	if (!cmp) {
+		/* Sem chave, a busca vira percurso: a ordem do array já é
+		 * a resposta, e nada precisa ser comparado. */
+		for (int i = 0; i < t->n; i++) {
 			resultado_adicionar(r, t->itens[i]);
+		}
+	} else {
+		/* O intervalo é contíguo na ordem da tabela: basta achar o
+		 * início e coletar até o comparador sair do zero. */
+		int pos = limite_inferior(t, cmp, chave, &comp);
+		while (pos < t->n) {
+			comp++;
+			if (cmp(t->itens[pos], chave) != 0) break;
+			resultado_adicionar(r, t->itens[pos]);
+			pos++;
 		}
 	}
 

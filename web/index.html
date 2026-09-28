@@ -5,6 +5,8 @@
   Descrição: Interface web da busca WikiArt. Navegação estilo -> artista -> obras.
               Os três níveis são apresentados como atos (I, II, III) — o tema
               visual é de diário de expedição, com tipografia inscricional.
+              Cada ato tem duas formas: lista (tabela ordenada) e árvore
+              (árvore afunilada), escolhidas pelo seletor de estrutura.
 -->
 <html lang="pt-BR">
 <head>
@@ -41,7 +43,7 @@
           <span>Estrutura</span>
           <select id="seletor-ed">
             <option value="tabela_ord">Tabela ordenada</option>
-            <option value="skip_list">Skip list</option>
+            <option value="arvore_afunilada">Árvore afunilada</option>
           </select>
         </label>
         <span class="status" id="status" title="Estado da engine">
@@ -63,7 +65,9 @@
         <input type="search" id="filtro-estilos" class="filtro" placeholder="Filtrar estilos…"
                autocomplete="off" aria-label="Filtrar estilos">
       </div>
+      <div class="metricas" id="metricas-estilos" hidden></div>
       <div class="grade-estilos" id="grade-estilos"></div>
+      <div class="arvore" id="arvore-estilos" data-nivel="generos" aria-label="Árvore de estilos" hidden></div>
     </section>
 
     <!-- Nível 2: artistas -->
@@ -77,7 +81,9 @@
         <input type="search" id="filtro-artistas" class="filtro" placeholder="Filtrar artistas…"
                autocomplete="off" aria-label="Filtrar artistas">
       </div>
+      <div class="metricas" id="metricas-artistas" hidden></div>
       <div class="grade-artistas" id="grade-artistas"></div>
+      <div class="arvore" id="arvore-artistas" data-nivel="artistas" aria-label="Árvore de artistas" hidden></div>
     </section>
 
     <!-- Nível 3: obras -->
@@ -90,8 +96,9 @@
         </div>
       </div>
 
-      <div class="metricas" id="metricas" hidden></div>
+      <div class="metricas" id="metricas-obras" hidden></div>
       <div class="grade-obras" id="grade-obras"></div>
+      <div class="arvore" id="arvore-obras" data-nivel="obras" aria-label="Árvore de obras" hidden></div>
       <div class="sentinela" id="sentinela"></div>
     </section>
 

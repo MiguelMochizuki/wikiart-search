@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
 		server_iniciar(csv, porta);
 	} else if (modo_bench) {
 		const Buscador* buscadores[] = {
-			&BUSCADOR_SKIP_LIST,
+			&BUSCADOR_ARVORE_AFUNILADA,
 			&BUSCADOR_TABELA_ORD,
 			NULL
 		};

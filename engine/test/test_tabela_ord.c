@@ -1,61 +1,51 @@
 /**
  * test_tabela_ord.c
  * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
- * Descrição: Testes unitários do TAD TabelaOrd. Lista indexada
- *            ordenada por (gênero, artista), com busca binária.
+ * Descrição: Testes unitários do TAD TabelaOrd. Lista indexada genérica,
+ *            testada com inteiros para isolar a estrutura da ordem dos
+ *            níveis (que o test_indice cobre).
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include "munit.h"
 #include "tabela_ord.h"
-#include "obra.h"
 
 /* ==============================
  * Helpers
  * ============================== */
 
-/** Cria uma obra com os campos essenciais para a tabela
- *
- * Parâmetros:
- * int id: ID da obra
- * const char* titulo: título
- * const char* artista: artista (chave de ordenação e busca)
- * const char* genero: gênero
- *
- * Retorna Obra*: ponteiro para a obra criada
- */
-static Obra* obra_rapida(int id, const char* titulo,
-			 const char* artista, const char* genero) {
-	return obra_criar(id, titulo, artista, genero, 1900, "path");
+/** Ordem natural entre inteiros (item e chave apontam para int) */
+static int cmp_int(const void* item, const void* chave) {
+	int a = *(const int*) item;
+	int b = *(const int*) chave;
+	return (a > b) - (a < b);
 }
 
-/* ==============================
- * Fixture
- * ============================== */
-
+/** Intervalo fechado de inteiros usado como chave de busca */
 typedef struct {
-	Obra* van_gogh;
-	Obra* picasso;
-	Obra* klimt;
-} Fixture;
+	int min;
+	int max;
+} Faixa;
 
-static void* setup(const MunitParameter params[], void* data) {
-	(void) params;
-	(void) data;
-
-	Fixture* f = malloc(sizeof *f);
-	f->van_gogh = obra_rapida(1, "starry-night", "van gogh", "post-impressionism");
-	f->picasso  = obra_rapida(2, "guernica",     "picasso",  "cubism");
-	f->klimt    = obra_rapida(3, "the-kiss",     "klimt",    "symbolism");
-	return f;
+/** Situa um inteiro em relação a uma Faixa */
+static int cmp_faixa(const void* item, const void* chave) {
+	int v = *(const int*) item;
+	const Faixa* f = chave;
+	if (v < f->min) return -1;
+	if (v > f->max) return 1;
+	return 0;
 }
 
-static void teardown(void* fixture) {
-	Fixture* f = fixture;
-	obra_liberar(f->van_gogh);
-	obra_liberar(f->picasso);
-	obra_liberar(f->klimt);
-	free(f);
+/** Valor do inteiro apontado por um item */
+static int valor(const void* item) {
+	return *(const int*) item;
+}
+
+/** Monta uma tabela com os valores dados, na ordem do array */
+static TabelaOrd* tabela_com(const int* valores, int n) {
+	TabelaOrd* t = tabela_ord_criar(cmp_int);
+	for (int i = 0; i < n; i++) tabela_ord_inserir(t, &valores[i]);
+	return t;
 }
 
 /* ==============================
@@ -66,10 +56,18 @@ static MunitResult test_criar_vazia(const MunitParameter params[], void* data) {
 	(void) params;
 	(void) data;
 
-	TabelaOrd* t = tabela_ord_criar();
+	TabelaOrd* t = tabela_ord_criar(cmp_int);
 	munit_assert_not_null(t);
 	munit_assert_int(tabela_ord_tamanho(t), ==, 0);
 	tabela_ord_liberar(t);
+	return MUNIT_OK;
+}
+
+static MunitResult test_criar_sem_comparador(const MunitParameter params[], void* data) {
+	(void) params;
+	(void) data;
+
+	munit_assert_null(tabela_ord_criar(NULL));
 	return MUNIT_OK;
 }
 
@@ -87,13 +85,14 @@ static MunitResult test_liberar_null(const MunitParameter params[], void* data) 
 
 static MunitResult test_inserir_um(const MunitParameter params[], void* data) {
 	(void) params;
-	Fixture* f = data;
+	(void) data;
 
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, f->van_gogh);
+	int v = 7;
+	TabelaOrd* t = tabela_ord_criar(cmp_int);
+	tabela_ord_inserir(t, &v);
 
 	munit_assert_int(tabela_ord_tamanho(t), ==, 1);
-	munit_assert_ptr_equal(tabela_ord_item(t, 0), f->van_gogh);
+	munit_assert_ptr_equal(tabela_ord_item(t, 0), &v);
 
 	tabela_ord_liberar(t);
 	return MUNIT_OK;
@@ -103,52 +102,15 @@ static MunitResult test_ordem_mantida_apos_insercoes(const MunitParameter params
 	(void) params;
 	(void) data;
 
-	/* Insere fora de ordem. A chave primária é o gênero, então a ordem
-	 * final segue cubism < post-impressionism < symbolism, e não a
-	 * ordem alfabética dos artistas (klimt < picasso < van gogh). */
-	Obra* picasso  = obra_rapida(1, "g", "picasso",  "cubism");
-	Obra* van_gogh = obra_rapida(2, "s", "van gogh", "post-impressionism");
-	Obra* klimt    = obra_rapida(3, "k", "klimt",    "symbolism");
+	int valores[] = { 5, 1, 4, 2, 3 };
+	TabelaOrd* t = tabela_com(valores, 5);
 
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, van_gogh);
-	tabela_ord_inserir(t, klimt);
-	tabela_ord_inserir(t, picasso);
-
-	munit_assert_int(tabela_ord_tamanho(t), ==, 3);
-	munit_assert_ptr_equal(tabela_ord_item(t, 0), picasso);
-	munit_assert_ptr_equal(tabela_ord_item(t, 1), van_gogh);
-	munit_assert_ptr_equal(tabela_ord_item(t, 2), klimt);
+	munit_assert_int(tabela_ord_tamanho(t), ==, 5);
+	for (int i = 0; i < 5; i++) {
+		munit_assert_int(valor(tabela_ord_item(t, i)), ==, i + 1);
+	}
 
 	tabela_ord_liberar(t);
-	obra_liberar(picasso);
-	obra_liberar(van_gogh);
-	obra_liberar(klimt);
-	return MUNIT_OK;
-}
-
-static MunitResult test_ordem_desempata_por_artista(const MunitParameter params[], void* data) {
-	(void) params;
-	(void) data;
-
-	/* Dentro do mesmo gênero, o desempate é pelo artista. */
-	Obra* c = obra_rapida(1, "t", "ccc", "mesmo-genero");
-	Obra* a = obra_rapida(2, "t", "aaa", "mesmo-genero");
-	Obra* b = obra_rapida(3, "t", "bbb", "mesmo-genero");
-
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, c);
-	tabela_ord_inserir(t, a);
-	tabela_ord_inserir(t, b);
-
-	munit_assert_ptr_equal(tabela_ord_item(t, 0), a);
-	munit_assert_ptr_equal(tabela_ord_item(t, 1), b);
-	munit_assert_ptr_equal(tabela_ord_item(t, 2), c);
-
-	tabela_ord_liberar(t);
-	obra_liberar(a);
-	obra_liberar(b);
-	obra_liberar(c);
 	return MUNIT_OK;
 }
 
@@ -156,39 +118,30 @@ static MunitResult test_insercao_no_meio(const MunitParameter params[], void* da
 	(void) params;
 	(void) data;
 
-	/* Insere A, C, B. A ordem final deve ser A, B, C. */
-	Obra* a = obra_rapida(1, "a", "aaa", "g");
-	Obra* b = obra_rapida(2, "b", "bbb", "g");
-	Obra* c = obra_rapida(3, "c", "ccc", "g");
+	/* Insere 1, 3, 2. O 2 entra entre os dois e desloca o 3. */
+	int valores[] = { 1, 3, 2 };
+	TabelaOrd* t = tabela_com(valores, 3);
 
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, a);
-	tabela_ord_inserir(t, c);
-	tabela_ord_inserir(t, b);   /* entra no meio */
-
-	munit_assert_int(tabela_ord_tamanho(t), ==, 3);
-	munit_assert_ptr_equal(tabela_ord_item(t, 0), a);
-	munit_assert_ptr_equal(tabela_ord_item(t, 1), b);
-	munit_assert_ptr_equal(tabela_ord_item(t, 2), c);
+	munit_assert_ptr_equal(tabela_ord_item(t, 0), &valores[0]);
+	munit_assert_ptr_equal(tabela_ord_item(t, 1), &valores[2]);
+	munit_assert_ptr_equal(tabela_ord_item(t, 2), &valores[1]);
 
 	tabela_ord_liberar(t);
-	obra_liberar(a);
-	obra_liberar(b);
-	obra_liberar(c);
 	return MUNIT_OK;
 }
 
 static MunitResult test_inserir_duplicado(const MunitParameter params[], void* data) {
 	(void) params;
-	Fixture* f = data;
+	(void) data;
 
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, f->van_gogh);
-	tabela_ord_inserir(t, f->van_gogh);
+	int v = 9;
+	TabelaOrd* t = tabela_ord_criar(cmp_int);
+	tabela_ord_inserir(t, &v);
+	tabela_ord_inserir(t, &v);
 
 	munit_assert_int(tabela_ord_tamanho(t), ==, 2);
-	munit_assert_ptr_equal(tabela_ord_item(t, 0), f->van_gogh);
-	munit_assert_ptr_equal(tabela_ord_item(t, 1), f->van_gogh);
+	munit_assert_ptr_equal(tabela_ord_item(t, 0), &v);
+	munit_assert_ptr_equal(tabela_ord_item(t, 1), &v);
 
 	tabela_ord_liberar(t);
 	return MUNIT_OK;
@@ -198,200 +151,28 @@ static MunitResult test_inserir_muitos(const MunitParameter params[], void* data
 	(void) params;
 	(void) data;
 
-	TabelaOrd* t = tabela_ord_criar();
+	/* Passa da capacidade inicial (1024) e força o realloc. Os valores
+	 * saem embaralhados de uma progressão modular. */
+	enum { N = 3000 };
+	static int valores[N];
+	for (int i = 0; i < N; i++) valores[i] = (i * 7919) % N;
 
-	Obra* obras[200];
-	char nomes[200][16];
-	for (int i = 0; i < 200; i++) {
-		snprintf(nomes[i], sizeof nomes[i], "a%03d", i);
-		obras[i] = obra_rapida(i, "titulo", nomes[i], "genero");
-		tabela_ord_inserir(t, obras[i]);
+	TabelaOrd* t = tabela_com(valores, N);
+	munit_assert_int(tabela_ord_tamanho(t), ==, N);
+	for (int i = 0; i < N; i++) {
+		munit_assert_int(valor(tabela_ord_item(t, i)), ==, i);
 	}
 
-	munit_assert_int(tabela_ord_tamanho(t), ==, 200);
-
-	/* Verifica a ordenação composta: gênero primeiro, artista depois */
-	for (int i = 1; i < 200; i++) {
-		const Obra* ant = tabela_ord_item(t, i - 1);
-		const Obra* cur = tabela_ord_item(t, i);
-		int cg = strcmp(obra_genero(ant), obra_genero(cur));
-		munit_assert_true(cg < 0 ||
-			(cg == 0 && strcmp(obra_artista(ant), obra_artista(cur)) <= 0));
-	}
-
-	tabela_ord_liberar(t);
-	for (int i = 0; i < 200; i++) obra_liberar(obras[i]);
-	return MUNIT_OK;
-}
-
-/* ==============================
- * Testes: busca por artista
- * ============================== */
-
-static MunitResult test_buscar_artista_existente(const MunitParameter params[], void* data) {
-	(void) params;
-	Fixture* f = data;
-
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, f->van_gogh);
-	tabela_ord_inserir(t, f->picasso);
-	tabela_ord_inserir(t, f->klimt);
-
-	Resultado* r = tabela_ord_buscar_artista(t, "picasso");
-	munit_assert_not_null(r);
-	munit_assert_int(resultado_tamanho(r), ==, 1);
-	munit_assert_ptr_equal(resultado_item(r, 0), f->picasso);
-
-	resultado_liberar(r);
-	tabela_ord_liberar(t);
-	return MUNIT_OK;
-}
-
-static MunitResult test_buscar_artista_inexistente(const MunitParameter params[], void* data) {
-	(void) params;
-	Fixture* f = data;
-
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, f->van_gogh);
-	tabela_ord_inserir(t, f->picasso);
-
-	Resultado* r = tabela_ord_buscar_artista(t, "monet");
-	munit_assert_not_null(r);
-	munit_assert_int(resultado_tamanho(r), ==, 0);
-
-	resultado_liberar(r);
-	tabela_ord_liberar(t);
-	return MUNIT_OK;
-}
-
-static MunitResult test_buscar_artista_em_array_vazio(const MunitParameter params[], void* data) {
-	(void) params;
-	(void) data;
-
-	TabelaOrd* t = tabela_ord_criar();
-
-	Resultado* r = tabela_ord_buscar_artista(t, "qualquer");
-	munit_assert_not_null(r);
-	munit_assert_int(resultado_tamanho(r), ==, 0);
-
-	resultado_liberar(r);
-	tabela_ord_liberar(t);
-	return MUNIT_OK;
-}
-
-static MunitResult test_buscar_artista_multiplos(const MunitParameter params[], void* data) {
-	(void) params;
-	(void) data;
-
-	Obra* a1 = obra_rapida(1, "obra-1", "picasso", "cubism");
-	Obra* a2 = obra_rapida(2, "obra-2", "picasso", "cubism");
-	Obra* a3 = obra_rapida(3, "obra-3", "monet",   "impressionism");
-
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, a1);
-	tabela_ord_inserir(t, a2);
-	tabela_ord_inserir(t, a3);
-
-	Resultado* r = tabela_ord_buscar_artista(t, "picasso");
-	munit_assert_int(resultado_tamanho(r), ==, 2);
-
-	resultado_liberar(r);
-	tabela_ord_liberar(t);
-	obra_liberar(a1);
-	obra_liberar(a2);
-	obra_liberar(a3);
-	return MUNIT_OK;
-}
-
-/* ==============================
- * Testes: busca por gênero
- * ============================== */
-
-static MunitResult test_buscar_genero_existente(const MunitParameter params[], void* data) {
-	(void) params;
-	Fixture* f = data;
-
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, f->van_gogh);
-	tabela_ord_inserir(t, f->picasso);
-	tabela_ord_inserir(t, f->klimt);
-
-	Resultado* r = tabela_ord_buscar_genero(t, "cubism");
-	munit_assert_int(resultado_tamanho(r), ==, 1);
-	munit_assert_ptr_equal(resultado_item(r, 0), f->picasso);
-
-	resultado_liberar(r);
-	tabela_ord_liberar(t);
-	return MUNIT_OK;
-}
-
-static MunitResult test_buscar_genero_inexistente(const MunitParameter params[], void* data) {
-	(void) params;
-	Fixture* f = data;
-
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, f->van_gogh);
-
-	Resultado* r = tabela_ord_buscar_genero(t, "barroco");
-	munit_assert_int(resultado_tamanho(r), ==, 0);
-
-	resultado_liberar(r);
-	tabela_ord_liberar(t);
-	return MUNIT_OK;
-}
-
-static MunitResult test_buscar_genero_multiplos(const MunitParameter params[], void* data) {
-	(void) params;
-	(void) data;
-
-	Obra* a1 = obra_rapida(1, "obra-1", "a", "cubism");
-	Obra* a2 = obra_rapida(2, "obra-2", "b", "cubism");
-	Obra* a3 = obra_rapida(3, "obra-3", "c", "cubism");
-
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, a1);
-	tabela_ord_inserir(t, a2);
-	tabela_ord_inserir(t, a3);
-
-	Resultado* r = tabela_ord_buscar_genero(t, "cubism");
-	munit_assert_int(resultado_tamanho(r), ==, 3);
-
-	resultado_liberar(r);
-	tabela_ord_liberar(t);
-	obra_liberar(a1);
-	obra_liberar(a2);
-	obra_liberar(a3);
-	return MUNIT_OK;
-}
-
-/* ==============================
- * Testes: métricas
- * ============================== */
-
-static MunitResult test_busca_conta_comparacoes(const MunitParameter params[], void* data) {
-	(void) params;
-	Fixture* f = data;
-
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, f->van_gogh);
-	tabela_ord_inserir(t, f->picasso);
-	tabela_ord_inserir(t, f->klimt);
-
-	Resultado* r = tabela_ord_buscar_artista(t, "picasso");
-	munit_assert_long(resultado_comparacoes(r), >, 0);
-	munit_assert_double(resultado_tempo_ms(r), >=, 0.0);
-
-	resultado_liberar(r);
 	tabela_ord_liberar(t);
 	return MUNIT_OK;
 }
 
 static MunitResult test_item_fora_do_intervalo(const MunitParameter params[], void* data) {
 	(void) params;
-	Fixture* f = data;
+	(void) data;
 
-	TabelaOrd* t = tabela_ord_criar();
-	tabela_ord_inserir(t, f->van_gogh);
+	int v = 1;
+	TabelaOrd* t = tabela_com(&v, 1);
 
 	munit_assert_null(tabela_ord_item(t, -1));
 	munit_assert_null(tabela_ord_item(t, 1));
@@ -402,79 +183,50 @@ static MunitResult test_item_fora_do_intervalo(const MunitParameter params[], vo
 }
 
 /* ==============================
- * Testes: busca por gênero + artista
+ * Testes: busca
  * ============================== */
 
-/** Monta uma tabela com o mesmo artista em dois gêneros
- *
- * Parâmetros:
- * Obra** obras: array de 5 posições preenchido com as obras criadas
- *
- * Retorna TabelaOrd*: tabela populada
- */
-static TabelaOrd* montar_tabela_mista(Obra** obras) {
-	obras[0] = obra_rapida(1, "t1", "van gogh", "realism");
-	obras[1] = obra_rapida(2, "t2", "van gogh", "post-impressionism");
-	obras[2] = obra_rapida(3, "t3", "van gogh", "post-impressionism");
-	obras[3] = obra_rapida(4, "t4", "picasso",  "post-impressionism");
-	obras[4] = obra_rapida(5, "t5", "klimt",    "realism");
-
-	TabelaOrd* t = tabela_ord_criar();
-	for (int i = 0; i < 5; i++) tabela_ord_inserir(t, obras[i]);
-	return t;
-}
-
-/** Libera as 5 obras montadas por montar_tabela_mista */
-static void liberar_mistas(Obra** obras) {
-	for (int i = 0; i < 5; i++) obra_liberar(obras[i]);
-}
-
-static MunitResult test_genero_artista_existente(const MunitParameter params[], void* data) {
+static MunitResult test_buscar_exato(const MunitParameter params[], void* data) {
 	(void) params;
 	(void) data;
 
-	Obra* obras[5];
-	TabelaOrd* t = montar_tabela_mista(obras);
+	int valores[] = { 4, 8, 15, 16, 23, 42 };
+	TabelaOrd* t = tabela_com(valores, 6);
 
-	Resultado* r = tabela_ord_buscar_genero_artista(t, "post-impressionism", "van gogh");
-
-	/* Das 3 obras de van gogh, só as 2 pós-impressionistas entram. */
-	munit_assert_int(resultado_tamanho(r), ==, 2);
-	for (int i = 0; i < resultado_tamanho(r); i++) {
-		const Obra* o = resultado_item(r, i);
-		munit_assert_string_equal(obra_artista(o), "van gogh");
-		munit_assert_string_equal(obra_genero(o), "post-impressionism");
-	}
+	int chave = 16;
+	Resultado* r = tabela_ord_buscar(t, cmp_int, &chave);
+	munit_assert_int(resultado_tamanho(r), ==, 1);
+	munit_assert_ptr_equal(resultado_item(r, 0), &valores[3]);
 
 	resultado_liberar(r);
 	tabela_ord_liberar(t);
-	liberar_mistas(obras);
 	return MUNIT_OK;
 }
 
-static MunitResult test_genero_artista_par_inexistente(const MunitParameter params[], void* data) {
+static MunitResult test_buscar_inexistente(const MunitParameter params[], void* data) {
 	(void) params;
 	(void) data;
 
-	Obra* obras[5];
-	TabelaOrd* t = montar_tabela_mista(obras);
+	int valores[] = { 4, 8, 15 };
+	TabelaOrd* t = tabela_com(valores, 3);
 
-	/* Artista existe e gênero existe, mas o par não. */
-	Resultado* r = tabela_ord_buscar_genero_artista(t, "realism", "picasso");
+	int chave = 10;
+	Resultado* r = tabela_ord_buscar(t, cmp_int, &chave);
+	munit_assert_not_null(r);
 	munit_assert_int(resultado_tamanho(r), ==, 0);
 
 	resultado_liberar(r);
 	tabela_ord_liberar(t);
-	liberar_mistas(obras);
 	return MUNIT_OK;
 }
 
-static MunitResult test_genero_artista_em_tabela_vazia(const MunitParameter params[], void* data) {
+static MunitResult test_buscar_em_tabela_vazia(const MunitParameter params[], void* data) {
 	(void) params;
 	(void) data;
 
-	TabelaOrd* t = tabela_ord_criar();
-	Resultado* r = tabela_ord_buscar_genero_artista(t, "cubism", "picasso");
+	TabelaOrd* t = tabela_ord_criar(cmp_int);
+	int chave = 1;
+	Resultado* r = tabela_ord_buscar(t, cmp_int, &chave);
 
 	munit_assert_not_null(r);
 	munit_assert_int(resultado_tamanho(r), ==, 0);
@@ -484,69 +236,88 @@ static MunitResult test_genero_artista_em_tabela_vazia(const MunitParameter para
 	return MUNIT_OK;
 }
 
-static MunitResult test_genero_artista_null_equivale_a_genero(const MunitParameter params[], void* data) {
+static MunitResult test_buscar_intervalo(const MunitParameter params[], void* data) {
 	(void) params;
 	(void) data;
 
-	Obra* obras[5];
-	TabelaOrd* t = montar_tabela_mista(obras);
+	int valores[] = { 9, 2, 7, 4, 1, 6, 3, 8, 5, 10 };
+	TabelaOrd* t = tabela_com(valores, 10);
 
-	Resultado* com_null = tabela_ord_buscar_genero_artista(t, "realism", NULL);
-	Resultado* so_genero = tabela_ord_buscar_genero(t, "realism");
+	Faixa f = { 3, 6 };
+	Resultado* r = tabela_ord_buscar(t, cmp_faixa, &f);
 
-	munit_assert_int(resultado_tamanho(com_null), ==, resultado_tamanho(so_genero));
-	munit_assert_int(resultado_tamanho(com_null), ==, 2);
-
-	resultado_liberar(com_null);
-	resultado_liberar(so_genero);
-	tabela_ord_liberar(t);
-	liberar_mistas(obras);
-	return MUNIT_OK;
-}
-
-static MunitResult test_genero_traz_artistas_diferentes(const MunitParameter params[], void* data) {
-	(void) params;
-	(void) data;
-
-	Obra* obras[5];
-	TabelaOrd* t = montar_tabela_mista(obras);
-
-	/* post-impressionism tem van gogh (2) e picasso (1). */
-	Resultado* r = tabela_ord_buscar_genero(t, "post-impressionism");
-	munit_assert_int(resultado_tamanho(r), ==, 3);
-
-	int tem_van_gogh = 0, tem_picasso = 0;
-	for (int i = 0; i < resultado_tamanho(r); i++) {
-		const char* a = obra_artista(resultado_item(r, i));
-		if (strcmp(a, "van gogh") == 0) tem_van_gogh = 1;
-		if (strcmp(a, "picasso")  == 0) tem_picasso  = 1;
+	/* O intervalo sai inteiro e em ordem: 3, 4, 5, 6. */
+	munit_assert_int(resultado_tamanho(r), ==, 4);
+	for (int i = 0; i < 4; i++) {
+		munit_assert_int(valor(resultado_item(r, i)), ==, 3 + i);
 	}
-	munit_assert_true(tem_van_gogh);
-	munit_assert_true(tem_picasso);
 
 	resultado_liberar(r);
 	tabela_ord_liberar(t);
-	liberar_mistas(obras);
 	return MUNIT_OK;
 }
 
-static MunitResult test_artista_atravessa_generos(const MunitParameter params[], void* data) {
+static MunitResult test_buscar_intervalo_com_repetidos(const MunitParameter params[], void* data) {
 	(void) params;
 	(void) data;
 
-	Obra* obras[5];
-	TabelaOrd* t = montar_tabela_mista(obras);
+	int valores[] = { 5, 2, 5, 9, 5, 1 };
+	TabelaOrd* t = tabela_com(valores, 6);
 
-	/* A varredura por artista alcança as obras dele em todos os gêneros. */
-	Resultado* r = tabela_ord_buscar_artista(t, "van gogh");
+	int chave = 5;
+	Resultado* r = tabela_ord_buscar(t, cmp_int, &chave);
 	munit_assert_int(resultado_tamanho(r), ==, 3);
-
-	/* Varredura completa: uma comparação por elemento da tabela. */
-	munit_assert_long(resultado_comparacoes(r), ==, 5);
+	for (int i = 0; i < 3; i++) {
+		munit_assert_int(valor(resultado_item(r, i)), ==, 5);
+	}
 
 	resultado_liberar(r);
 	tabela_ord_liberar(t);
-	liberar_mistas(obras);
+	return MUNIT_OK;
+}
+
+static MunitResult test_buscar_sem_chave_lista_tudo(const MunitParameter params[], void* data) {
+	(void) params;
+	(void) data;
+
+	int valores[] = { 3, 1, 2 };
+	TabelaOrd* t = tabela_com(valores, 3);
+
+	/* Sem comparador não há o que buscar: vem tudo, em ordem, e sem
+	 * nenhuma comparação. */
+	Resultado* r = tabela_ord_buscar(t, NULL, NULL);
+	munit_assert_int(resultado_tamanho(r), ==, 3);
+	for (int i = 0; i < 3; i++) {
+		munit_assert_int(valor(resultado_item(r, i)), ==, i + 1);
+	}
+	munit_assert_long(resultado_comparacoes(r), ==, 0);
+	munit_assert_long(resultado_rotacoes(r), ==, 0);
+
+	resultado_liberar(r);
+	tabela_ord_liberar(t);
+	return MUNIT_OK;
+}
+
+static MunitResult test_busca_binaria_conta_comparacoes(const MunitParameter params[], void* data) {
+	(void) params;
+	(void) data;
+
+	enum { N = 1024 };
+	static int valores[N];
+	for (int i = 0; i < N; i++) valores[i] = i;
+	TabelaOrd* t = tabela_com(valores, N);
+
+	/* Busca binária em 1024 itens: até 11 passos até o limite
+	 * inferior, mais 2 da coleta (o achado e o que encerra). */
+	int chave = 700;
+	Resultado* r = tabela_ord_buscar(t, cmp_int, &chave);
+	munit_assert_int(resultado_tamanho(r), ==, 1);
+	munit_assert_long(resultado_comparacoes(r), >, 0);
+	munit_assert_long(resultado_comparacoes(r), <=, 13);
+	munit_assert_double(resultado_tempo_ms(r), >=, 0.0);
+
+	resultado_liberar(r);
+	tabela_ord_liberar(t);
 	return MUNIT_OK;
 }
 
@@ -559,58 +330,36 @@ static const MunitSuite suite_tabela_ord = {
 	(MunitTest[]) {
 		{ .name = "/criar-vazia",
 		  .test = test_criar_vazia },
+		{ .name = "/criar-sem-comparador",
+		  .test = test_criar_sem_comparador },
 		{ .name = "/liberar-null",
 		  .test = test_liberar_null },
 		{ .name = "/inserir-um",
-		  .test = test_inserir_um,
-		  .setup = setup, .tear_down = teardown },
+		  .test = test_inserir_um },
 		{ .name = "/ordem-mantida-apos-insercoes",
 		  .test = test_ordem_mantida_apos_insercoes },
 		{ .name = "/insercao-no-meio",
 		  .test = test_insercao_no_meio },
 		{ .name = "/inserir-duplicado",
-		  .test = test_inserir_duplicado,
-		  .setup = setup, .tear_down = teardown },
+		  .test = test_inserir_duplicado },
 		{ .name = "/inserir-muitos",
 		  .test = test_inserir_muitos },
-		{ .name = "/buscar-artista-existente",
-		  .test = test_buscar_artista_existente,
-		  .setup = setup, .tear_down = teardown },
-		{ .name = "/buscar-artista-inexistente",
-		  .test = test_buscar_artista_inexistente,
-		  .setup = setup, .tear_down = teardown },
-		{ .name = "/buscar-artista-em-array-vazio",
-		  .test = test_buscar_artista_em_array_vazio },
-		{ .name = "/buscar-artista-multiplos",
-		  .test = test_buscar_artista_multiplos },
-		{ .name = "/buscar-genero-existente",
-		  .test = test_buscar_genero_existente,
-		  .setup = setup, .tear_down = teardown },
-		{ .name = "/buscar-genero-inexistente",
-		  .test = test_buscar_genero_inexistente,
-		  .setup = setup, .tear_down = teardown },
-		{ .name = "/buscar-genero-multiplos",
-		  .test = test_buscar_genero_multiplos },
-		{ .name = "/busca-conta-comparacoes",
-		  .test = test_busca_conta_comparacoes,
-		  .setup = setup, .tear_down = teardown },
 		{ .name = "/item-fora-do-intervalo",
-		  .test = test_item_fora_do_intervalo,
-		  .setup = setup, .tear_down = teardown },
-		{ .name = "/ordem-desempata-por-artista",
-		  .test = test_ordem_desempata_por_artista },
-		{ .name = "/genero-artista-existente",
-		  .test = test_genero_artista_existente },
-		{ .name = "/genero-artista-par-inexistente",
-		  .test = test_genero_artista_par_inexistente },
-		{ .name = "/genero-artista-em-tabela-vazia",
-		  .test = test_genero_artista_em_tabela_vazia },
-		{ .name = "/genero-artista-null-equivale-a-genero",
-		  .test = test_genero_artista_null_equivale_a_genero },
-		{ .name = "/genero-traz-artistas-diferentes",
-		  .test = test_genero_traz_artistas_diferentes },
-		{ .name = "/artista-atravessa-generos",
-		  .test = test_artista_atravessa_generos },
+		  .test = test_item_fora_do_intervalo },
+		{ .name = "/buscar-exato",
+		  .test = test_buscar_exato },
+		{ .name = "/buscar-inexistente",
+		  .test = test_buscar_inexistente },
+		{ .name = "/buscar-em-tabela-vazia",
+		  .test = test_buscar_em_tabela_vazia },
+		{ .name = "/buscar-intervalo",
+		  .test = test_buscar_intervalo },
+		{ .name = "/buscar-intervalo-com-repetidos",
+		  .test = test_buscar_intervalo_com_repetidos },
+		{ .name = "/buscar-sem-chave-lista-tudo",
+		  .test = test_buscar_sem_chave_lista_tudo },
+		{ .name = "/busca-binaria-conta-comparacoes",
+		  .test = test_busca_binaria_conta_comparacoes },
 		{ .name = NULL }
 	},
 	NULL, 1, MUNIT_SUITE_OPTION_NONE

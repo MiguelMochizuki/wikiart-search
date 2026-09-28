@@ -11,11 +11,12 @@
  * ============================== */
 
 struct resultado_t {
-	const Obra** itens;
+	const void** itens;
 	int n;
 	int cap;
 	double tempo_ms;
 	long comparacoes;
+	long rotacoes;
 };
 
 /* ==============================
@@ -45,10 +46,11 @@ Resultado* resultado_criar(int capacidade_inicial) {
 	r->cap         = capacidade_inicial;
 	r->tempo_ms    = 0.0;
 	r->comparacoes = 0;
+	r->rotacoes    = 0;
 	return r;
 }
 
-/** Libera o resultado e o array interno (não libera as Obras apontadas)
+/** Libera o resultado e o array interno (não libera os itens apontados)
  *
  * Parâmetros:
  * Resultado* r: ponteiro para resultado a ser liberado
@@ -59,22 +61,22 @@ void resultado_liberar(Resultado* r) {
 	free(r);
 }
 
-/** Adiciona uma obra ao resultado
+/** Adiciona um item ao resultado
  *
  * Parâmetros:
  * Resultado* r: ponteiro para resultado
- * const Obra* o: ponteiro para obra (não é copiada, só referenciada)
+ * const void* item: ponteiro para o item (não é copiado, só referenciado)
  */
-void resultado_adicionar(Resultado* r, const Obra* o) {
+void resultado_adicionar(Resultado* r, const void* item) {
 	if (r->n == r->cap) {
 		int nova_cap = r->cap * 2;
-		const Obra** tmp = realloc((void*) r->itens,
+		const void** tmp = realloc((void*) r->itens,
 					   nova_cap * sizeof *tmp);
 		if (!tmp) return;
 		r->itens = tmp;
 		r->cap   = nova_cap;
 	}
-	r->itens[r->n++] = o;
+	r->itens[r->n++] = item;
 }
 
 /** Define as métricas do resultado
@@ -89,6 +91,16 @@ void resultado_set_metricas(Resultado* r, double tempo_ms, long comparacoes) {
 	r->comparacoes = comparacoes;
 }
 
+/** Define quantas rotações a busca fez na estrutura
+ *
+ * Parâmetros:
+ * Resultado* r: ponteiro para resultado
+ * long rotacoes: número de rotações realizadas
+ */
+void resultado_set_rotacoes(Resultado* r, long rotacoes) {
+	r->rotacoes = rotacoes;
+}
+
 /* ==============================
  * Getters
  * ============================== */
@@ -97,7 +109,7 @@ int resultado_tamanho(const Resultado* r) {
 	return r->n;
 }
 
-const Obra* resultado_item(const Resultado* r, int indice) {
+const void* resultado_item(const Resultado* r, int indice) {
 	if (indice < 0 || indice >= r->n) return NULL;
 	return r->itens[indice];
 }
@@ -108,4 +120,8 @@ double resultado_tempo_ms(const Resultado* r) {
 
 long resultado_comparacoes(const Resultado* r) {
 	return r->comparacoes;
+}
+
+long resultado_rotacoes(const Resultado* r) {
+	return r->rotacoes;
 }

@@ -1,6 +1,17 @@
 /**
  * server.c
  * Descrição: Servidor HTTP com POSIX sockets e roteamento da API.
+ *
+ * Cada ED tem o seu Indice, com as três estruturas da navegação. Uma
+ * rota por nível: /api/generos, /api/artistas e /api/busca (obras). Na
+ * tabela ordenada a resposta é a lista do nível; na árvore afunilada é a
+ * vista dos primeiros níveis da árvore, porque ali a forma é o que
+ * interessa mostrar.
+ *
+ * O parâmetro opcional 'foco' pede um acesso a um item específico do
+ * nível: na árvore ele é afunilado até a raiz. As árvores guardam o
+ * estado entre requisições, e esse estado é compartilhado por todos os
+ * clientes: é o servidor, e não o navegador, que lembra o último acesso.
  */
 #define _POSIX_C_SOURCE 200809L
 
@@ -8,6 +19,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -15,14 +28,26 @@
 
 #include "server.h"
 #include "buscador.h"
+#include "catalogo.h"
+#include "indice.h"
 #include "json.h"
 
 #define BUFFER_REQ 8192
 
+/* Níveis da árvore que a vista manda para a interface: 1 + 2 + 4 + 8 nós. */
+#define NIVEIS_VISTA 4
+
+/* EDs servidas. A primeira é a padrão quando 'ed' não vem na URL. */
+static const Buscador* const EDS[] = {
+	&BUSCADOR_TABELA_ORD,
+	&BUSCADOR_ARVORE_AFUNILADA
+};
+#define N_EDS ((int) (sizeof EDS / sizeof *EDS))
+
 typedef struct {
 	const Csv* csv;
-	void* sl_inst;
-	void* to_inst;
+	Catalogo* catalogo;
+	Indice* indices[N_EDS];
 } ServerContext;
 
 /* Decodifica escape de URL (ex: 'van+gogh' ou '%20' -> 'van gogh') */
@@ -91,8 +116,11 @@ static void handle_status(int sock, const ServerContext* ctx) {
 	char buf[256];
 	snprintf(buf, sizeof buf,
 	         "{\"status\":\"online\",\"total_obras\":%d,"
-	         "\"estruturas\":[\"skip_list\",\"tabela_ord\"]}",
-	         csv_tamanho(ctx->csv));
+	         "\"generos\":%d,\"artistas\":%d,"
+	         "\"estruturas\":[\"tabela_ord\",\"arvore_afunilada\"]}",
+	         csv_tamanho(ctx->csv),
+	         catalogo_n_generos(ctx->catalogo),
+	         catalogo_n_artistas(ctx->catalogo));
 	enviar_resposta(sock, 200, "OK", "application/json", buf, strlen(buf));
 }
 
@@ -118,57 +146,6 @@ static void enviar_erro(int sock, int status, const char* status_msg,
 			corpo, (size_t) n);
 }
 
-/** Resolve o nome de uma ED para a vtable e a instância correspondente
- *
- * Parâmetros:
- * const char* nome: nome da ED vindo do parâmetro 'ed'
- * const ServerContext* ctx: contexto com as instâncias populadas
- * void** inst_out: saída para a instância escolhida
- *
- * Retorna const Buscador*: vtable da ED, ou NULL se o nome for inválido
- */
-static const Buscador* buscador_por_nome(const char* nome,
-					 const ServerContext* ctx,
-					 void** inst_out) {
-	if (strcmp(nome, "skip_list") == 0) {
-		*inst_out = ctx->sl_inst;
-		return &BUSCADOR_SKIP_LIST;
-	}
-	if (strcmp(nome, "tabela_ord") == 0) {
-		*inst_out = ctx->to_inst;
-		return &BUSCADOR_TABELA_ORD;
-	}
-	return NULL;
-}
-
-/** Descreve como a ED resolveu a consulta, para a interface exibir
- *
- * As duas EDs indexam pela chave composta (gênero, artista), então
- * gênero e o par saem por busca indexada e artista sozinho cai em
- * varredura nas duas. O que muda é como cada uma alcança o bloco:
- * busca binária ou descida de níveis.
- *
- * Parâmetros:
- * const char* ed: nome da ED
- * const char* consulta: "genero", "artista" ou "genero+artista"
- *
- * Retorna const char*: rótulo do algoritmo usado
- */
-static const char* algoritmo_de(const char* ed, const char* consulta) {
-	int so_artista = (strcmp(consulta, "artista") == 0);
-
-	/* Cada rótulo nomeia o algoritmo, não a chave: as duas indexam
-	 * pela mesma chave composta, o que muda é como alcançam o bloco.
-	 * Só a TabelaOrd faz busca binária de fato, porque só ela tem
-	 * acesso aleatório. A SkipList anda por níveis, O(log n)
-	 * esperado e não garantido. */
-	if (strcmp(ed, "tabela_ord") == 0) {
-		return so_artista ? "varredura linear" : "busca binaria";
-	}
-	if (so_artista) return "varredura linear";
-	return "descida por niveis";
-}
-
 /** Lê um parâmetro e informa se veio preenchido
  *
  * Parâmetros:
@@ -184,57 +161,61 @@ static int param_preenchido(const char* query, const char* chave,
 	return extrair_param(query, chave, destino, max) && destino[0] != '\0';
 }
 
-static void handle_busca(int sock, const ServerContext* ctx, const char* query) {
-	char genero[256]  = {0};
-	char artista[256] = {0};
-	char ed[32]       = "tabela_ord";
-
-	int tem_genero  = param_preenchido(query, "genero",  genero,  sizeof genero);
-	int tem_artista = param_preenchido(query, "artista", artista, sizeof artista);
-
-	extrair_param(query, "ed", ed, sizeof ed);
-
-	void* inst = NULL;
-	const Buscador* b = buscador_por_nome(ed, ctx, &inst);
-	if (!b) {
-		enviar_erro(sock, 400, "Bad Request",
-			    "Parametro 'ed' invalido. Use skip_list "
-			    "ou tabela_ord.");
-		return;
+/** Escolhe o índice da ED pedida no parâmetro 'ed'
+ *
+ * Sem o parâmetro, vale a primeira ED de EDS. Nome desconhecido já
+ * responde 400 ao cliente.
+ *
+ * Parâmetros:
+ * int sock: socket do cliente, para o erro
+ * const ServerContext* ctx: contexto com os índices montados
+ * const char* query: query string da requisição
+ *
+ * Retorna Indice*: índice escolhido, ou NULL se o nome for inválido
+ */
+static Indice* indice_da_query(int sock, const ServerContext* ctx,
+			       const char* query) {
+	char ed[32];
+	if (!param_preenchido(query, "ed", ed, sizeof ed)) {
+		return ctx->indices[0];
 	}
-
-	/* Despacho: a combinação dos parâmetros escolhe a busca. */
-	Resultado* r = NULL;
-	const char* consulta = NULL;
-
-	if (tem_genero && tem_artista) {
-		consulta = "genero+artista";
-		r = b->buscar_genero_artista(inst, genero, artista);
-	} else if (tem_genero) {
-		consulta = "genero";
-		r = b->buscar_genero(inst, genero);
-	} else if (tem_artista) {
-		consulta = "artista";
-		r = b->buscar_artista(inst, artista);
-	} else {
-		enviar_erro(sock, 400, "Bad Request",
-			    "Informe 'genero', 'artista' ou os dois.");
-		return;
+	for (int i = 0; i < N_EDS; i++) {
+		if (strcmp(ed, EDS[i]->nome) == 0) return ctx->indices[i];
 	}
+	enviar_erro(sock, 400, "Bad Request",
+		    "Parametro 'ed' invalido. Use tabela_ord ou "
+		    "arvore_afunilada.");
+	return NULL;
+}
 
+/** Busca um nível e responde em lista ou, se a ED tiver forma, em vista
+ *
+ * A busca feita é a do foco, quando há um, ou a do intervalo do nível.
+ * A vista é sempre do intervalo: depois de afunilar um artista, a tela
+ * continua mostrando só os artistas daquele gênero, agora com ele na
+ * raiz.
+ *
+ * Parâmetros:
+ * int sock: socket do cliente
+ * Indice* ix: índice da ED escolhida
+ * Nivel nivel: nível consultado
+ * const Chave* intervalo: intervalo do nível, ou NULL para o nível todo
+ * const Chave* foco: item acessado, ou NULL
+ * const char* genero: gênero a ecoar na resposta, ou NULL
+ * const char* artista: artista a ecoar na resposta, ou NULL
+ */
+static void responder_nivel(int sock, Indice* ix, Nivel nivel,
+			    const Chave* intervalo, const Chave* foco,
+			    const char* genero, const char* artista) {
+	const Buscador* ed = indice_ed(ix);
+	const Chave* chave = foco ? foco : intervalo;
+
+	Resultado* r = indice_buscar(ix, nivel, chave);
 	if (!r) {
 		enviar_erro(sock, 500, "Internal Server Error",
 			    "Falha ao alocar o resultado.");
 		return;
 	}
-
-	JsonConsulta jc = {
-		.genero    = tem_genero  ? genero  : NULL,
-		.artista   = tem_artista ? artista : NULL,
-		.estrutura = b->nome,
-		.consulta  = consulta,
-		.algoritmo = algoritmo_de(b->nome, consulta)
-	};
 
 	JsonBuffer* jb = json_buffer_criar(4096);
 	if (!jb) {
@@ -244,7 +225,22 @@ static void handle_busca(int sock, const ServerContext* ctx, const char* query) 
 		return;
 	}
 
-	json_serializar_resultado(jb, r, &jc);
+	JsonConsulta jc = {
+		.nivel     = nivel,
+		.genero    = genero,
+		.artista   = artista,
+		.estrutura = ed->nome,
+		.algoritmo = chave ? ed->algoritmo_busca : ed->algoritmo_percurso
+	};
+
+	NoVista vista[(1 << NIVEIS_VISTA) - 1];
+	int total = indice_vista(ix, nivel, intervalo, vista, NIVEIS_VISTA);
+
+	if (total >= 0) {
+		json_serializar_vista(jb, r, &jc, vista, NIVEIS_VISTA, total);
+	} else {
+		json_serializar_resultado(jb, r, &jc);
+	}
 	enviar_resposta(sock, 200, "OK", "application/json",
 			json_buffer_obter_texto(jb), json_buffer_tamanho(jb));
 
@@ -252,6 +248,96 @@ static void handle_busca(int sock, const ServerContext* ctx, const char* query) 
 	resultado_liberar(r);
 }
 
+/** Nível 1: GET /api/generos?ed=&foco=<genero> */
+static void handle_generos(int sock, const ServerContext* ctx, const char* query) {
+	Indice* ix = indice_da_query(sock, ctx, query);
+	if (!ix) return;
+
+	char foco[256] = {0};
+	int tem_foco = param_preenchido(query, "foco", foco, sizeof foco);
+	Chave k_foco = { foco, NULL, -1 };
+
+	responder_nivel(sock, ix, NIVEL_GENEROS, NULL,
+			tem_foco ? &k_foco : NULL, NULL, NULL);
+}
+
+/** Nível 2: GET /api/artistas?genero=<g>&ed=&foco=<artista> */
+static void handle_artistas(int sock, const ServerContext* ctx, const char* query) {
+	char genero[256] = {0};
+	char foco[256]   = {0};
+
+	if (!param_preenchido(query, "genero", genero, sizeof genero)) {
+		enviar_erro(sock, 400, "Bad Request", "Informe 'genero'.");
+		return;
+	}
+	int tem_foco = param_preenchido(query, "foco", foco, sizeof foco);
+
+	Indice* ix = indice_da_query(sock, ctx, query);
+	if (!ix) return;
+
+	Chave intervalo = { genero, NULL, -1 };
+	Chave k_foco    = { genero, foco, -1 };
+
+	responder_nivel(sock, ix, NIVEL_ARTISTAS, &intervalo,
+			tem_foco ? &k_foco : NULL, genero, NULL);
+}
+
+/** Converte o texto do foco das obras num id
+ *
+ * Parâmetros:
+ * const char* s: texto vindo da URL
+ * int* id_out: saída com o id
+ *
+ * Retorna int: 1 se for um inteiro não negativo válido, 0 caso contrário
+ */
+static int ler_id(const char* s, int* id_out) {
+	char* fim = NULL;
+	errno = 0;
+	long v = strtol(s, &fim, 10);
+	if (errno != 0 || fim == s || *fim != '\0' || v < 0 || v > INT_MAX) {
+		return 0;
+	}
+	*id_out = (int) v;
+	return 1;
+}
+
+/** Nível 3: GET /api/busca?genero=<g>&artista=<a>&ed=&foco=<id> */
+static void handle_busca(int sock, const ServerContext* ctx, const char* query) {
+	char genero[256]  = {0};
+	char artista[256] = {0};
+	char foco[32]     = {0};
+
+	int tem_genero  = param_preenchido(query, "genero",  genero,  sizeof genero);
+	int tem_artista = param_preenchido(query, "artista", artista, sizeof artista);
+	int tem_foco    = param_preenchido(query, "foco",    foco,    sizeof foco);
+
+	/* Gênero é a chave primária dos três níveis: sem ele não há bloco
+	 * por onde entrar na estrutura. */
+	if (!tem_genero) {
+		enviar_erro(sock, 400, "Bad Request",
+			    "Informe 'genero' (e, opcionalmente, 'artista').");
+		return;
+	}
+
+	int id = -1;
+	if (tem_foco && (!tem_artista || !ler_id(foco, &id))) {
+		enviar_erro(sock, 400, "Bad Request",
+			    "'foco' e o id de uma obra e exige 'artista'.");
+		return;
+	}
+
+	Indice* ix = indice_da_query(sock, ctx, query);
+	if (!ix) return;
+
+	const char* a = tem_artista ? artista : NULL;
+	Chave intervalo = { genero, a, -1 };
+	Chave k_foco    = { genero, a, id };
+
+	responder_nivel(sock, ix, NIVEL_OBRAS, &intervalo,
+			tem_foco ? &k_foco : NULL, genero, a);
+}
+
+/** GET /api/comparar?genero=<g>&artista=<a>: a mesma busca de obras em todas as EDs */
 static void handle_comparar(int sock, const ServerContext* ctx, const char* query) {
 	char genero[256]  = {0};
 	char artista[256] = {0};
@@ -259,47 +345,32 @@ static void handle_comparar(int sock, const ServerContext* ctx, const char* quer
 	int tem_genero  = param_preenchido(query, "genero",  genero,  sizeof genero);
 	int tem_artista = param_preenchido(query, "artista", artista, sizeof artista);
 
-	if (!tem_genero && !tem_artista) {
+	if (!tem_genero) {
 		enviar_erro(sock, 400, "Bad Request",
-			    "Informe 'genero', 'artista' ou os dois.");
+			    "Informe 'genero' (e, opcionalmente, 'artista').");
 		return;
 	}
 
-	const char* consulta = (tem_genero && tem_artista) ? "genero+artista"
-			     : (tem_genero ? "genero" : "artista");
+	const char* consulta = tem_artista ? "genero+artista" : "genero";
+	Chave k = { genero, tem_artista ? artista : NULL, -1 };
 
-	const Buscador* eds[] = {
-		&BUSCADOR_SKIP_LIST,
-		&BUSCADOR_TABELA_ORD
-	};
-	void* insts[] = { ctx->sl_inst, ctx->to_inst };
-	const int n_eds = (int) (sizeof eds / sizeof *eds);
-
-	/* Roda a mesma consulta nas duas EDs e coleta as métricas. */
-	JsonComparacao linhas[2];
+	/* Roda a mesma consulta em todas as EDs e coleta as métricas. */
+	JsonComparacao linhas[N_EDS];
 	int n = 0;
 
-	for (int i = 0; i < n_eds; i++) {
-		Resultado* r;
-		if (tem_genero && tem_artista) {
-			r = eds[i]->buscar_genero_artista(insts[i], genero, artista);
-		} else if (tem_genero) {
-			r = eds[i]->buscar_genero(insts[i], genero);
-		} else {
-			r = eds[i]->buscar_artista(insts[i], artista);
-		}
+	for (int i = 0; i < N_EDS; i++) {
+		Resultado* r = indice_buscar(ctx->indices[i], NIVEL_OBRAS, &k);
 		if (!r) continue;
 
-		linhas[n].estrutura = eds[i]->nome;
-		linhas[n].algoritmo = algoritmo_de(eds[i]->nome, consulta);
+		linhas[n].estrutura = EDS[i]->nome;
+		linhas[n].algoritmo = EDS[i]->algoritmo_busca;
 		linhas[n].resultado = r;
 		n++;
 	}
 
 	JsonBuffer* jb = json_buffer_criar(1024);
 	if (jb) {
-		json_serializar_comparativo(jb,
-					    tem_genero  ? genero  : NULL,
+		json_serializar_comparativo(jb, genero,
 					    tem_artista ? artista : NULL,
 					    consulta, linhas, n);
 		enviar_resposta(sock, 200, "OK", "application/json",
@@ -340,6 +411,10 @@ static void processar_requisicao(int sock, const ServerContext* ctx) {
 
 	if (strcmp(uri, "/api/status") == 0) {
 		handle_status(sock, ctx);
+	} else if (strcmp(uri, "/api/generos") == 0) {
+		handle_generos(sock, ctx, query);
+	} else if (strcmp(uri, "/api/artistas") == 0) {
+		handle_artistas(sock, ctx, query);
 	} else if (strcmp(uri, "/api/busca") == 0) {
 		handle_busca(sock, ctx, query);
 	} else if (strcmp(uri, "/api/comparar") == 0) {
@@ -350,25 +425,40 @@ static void processar_requisicao(int sock, const ServerContext* ctx) {
 	}
 }
 
+/** Libera o catálogo e os índices já montados do contexto */
+static void liberar_contexto(ServerContext* ctx) {
+	for (int i = 0; i < N_EDS; i++) indice_liberar(ctx->indices[i]);
+	catalogo_liberar(ctx->catalogo);
+}
+
 int server_iniciar(const Csv* csv, int porta) {
-	ServerContext ctx;
-	ctx.csv = csv;
+	ServerContext ctx = { .csv = csv };
 
 	printf("Populando estruturas na memoria para o servidor...\n");
-	ctx.sl_inst = BUSCADOR_SKIP_LIST.criar();
-	ctx.to_inst = BUSCADOR_TABELA_ORD.criar();
-
-	int total = csv_tamanho(csv);
-	for (int i = 0; i < total; i++) {
-		const Obra* o = csv_obra(csv, i);
-		BUSCADOR_SKIP_LIST.inserir(ctx.sl_inst, o);
-		BUSCADOR_TABELA_ORD.inserir(ctx.to_inst, o);
+	Catalogo* catalogo = catalogo_montar(csv);
+	if (!catalogo) {
+		fprintf(stderr, "Falha ao montar o catalogo.\n");
+		return 1;
 	}
-	printf("Estruturas carregadas com sucesso (%d obras).\n", total);
+	ctx.catalogo = catalogo;
+
+	for (int i = 0; i < N_EDS; i++) {
+		ctx.indices[i] = indice_montar(EDS[i], catalogo);
+		if (!ctx.indices[i]) {
+			fprintf(stderr, "Falha ao montar %s.\n", EDS[i]->nome);
+			liberar_contexto(&ctx);
+			return 1;
+		}
+	}
+	printf("Estruturas carregadas com sucesso (%d generos, %d artistas, "
+	       "%d obras).\n",
+	       catalogo_n_generos(catalogo), catalogo_n_artistas(catalogo),
+	       csv_tamanho(csv));
 
 	int server_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (server_fd < 0) {
 		perror("socket");
+		liberar_contexto(&ctx);
 		return 1;
 	}
 
@@ -384,21 +474,25 @@ int server_iniciar(const Csv* csv, int porta) {
 	if (bind(server_fd, (struct sockaddr*)&addr, sizeof addr) < 0) {
 		perror("bind");
 		close(server_fd);
+		liberar_contexto(&ctx);
 		return 1;
 	}
 
 	if (listen(server_fd, 16) < 0) {
 		perror("listen");
 		close(server_fd);
+		liberar_contexto(&ctx);
 		return 1;
 	}
 
 	printf("\n======================================================\n");
 	printf("Servidor WikiArt ativo em: http://localhost:%d\n", porta);
-	printf("Endpoints disponiveis:\n");
+	printf("Endpoints disponiveis (\"ed\": tabela_ord | arvore_afunilada, padrao tabela_ord):\n");
 	printf("  - GET /api/status\n");
-	printf("  - GET /api/busca?genero=<g>&artista=<a>&ed=<skip_list|tabela_ord>\n");
-	printf("      informe genero, artista ou os dois. \"ed\" e opcional (padrao: tabela_ord)\n");
+	printf("  - GET /api/generos?ed=<ed>&foco=<genero>\n");
+	printf("  - GET /api/artistas?genero=<g>&ed=<ed>&foco=<artista>\n");
+	printf("  - GET /api/busca?genero=<g>&artista=<a>&ed=<ed>&foco=<id>\n");
+	printf("      \"foco\" e opcional: acessa um item e, na arvore, o leva a raiz\n");
 	printf("  - GET /api/comparar?genero=<g>&artista=<a>\n");
 	printf("======================================================\n\n");
 
@@ -413,7 +507,6 @@ int server_iniciar(const Csv* csv, int porta) {
 	}
 
 	close(server_fd);
-	BUSCADOR_SKIP_LIST.liberar(ctx.sl_inst);
-	BUSCADOR_TABELA_ORD.liberar(ctx.to_inst);
+	liberar_contexto(&ctx);
 	return 0;
 }

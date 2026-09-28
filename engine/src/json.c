@@ -133,10 +133,67 @@ static void jb_adicionar_str_ou_null(JsonBuffer* jb, const char* str) {
 	jb_adicionar_escapado(jb, str);
 }
 
-void json_serializar_resultado(JsonBuffer* jb, const Resultado* r,
-                               const JsonConsulta* c) {
-	char buf[128];
-	jb_adicionar_raw(jb, "{");
+void json_serializar_genero(JsonBuffer* jb, const Genero* g) {
+	char buf[96];
+	jb_adicionar_raw(jb, "{\"nome\":");
+	jb_adicionar_escapado(jb, genero_nome(g));
+	snprintf(buf, sizeof buf, ",\"obras\":%d,\"artistas\":%d,\"capa\":",
+	         genero_obras(g), genero_artistas(g));
+	jb_adicionar_raw(jb, buf);
+	json_serializar_obra(jb, genero_capa(g));
+	jb_adicionar_raw(jb, "}");
+}
+
+void json_serializar_artista(JsonBuffer* jb, const Artista* a) {
+	char buf[64];
+	jb_adicionar_raw(jb, "{\"genero\":");
+	jb_adicionar_escapado(jb, artista_genero(a));
+	jb_adicionar_raw(jb, ",\"nome\":");
+	jb_adicionar_escapado(jb, artista_nome(a));
+	snprintf(buf, sizeof buf, ",\"obras\":%d,\"capa\":", artista_obras(a));
+	jb_adicionar_raw(jb, buf);
+	json_serializar_obra(jb, artista_capa(a));
+	jb_adicionar_raw(jb, "}");
+}
+
+/** Serializa um item conforme o tipo do nível
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer de destino
+ * Nivel nivel: nível de onde o item veio
+ * const void* item: Genero*, Artista* ou Obra*
+ */
+static void serializar_item(JsonBuffer* jb, Nivel nivel, const void* item) {
+	switch (nivel) {
+		case NIVEL_GENEROS:  json_serializar_genero(jb, item);  break;
+		case NIVEL_ARTISTAS: json_serializar_artista(jb, item); break;
+		default:             json_serializar_obra(jb, item);    break;
+	}
+}
+
+/** Nome do nível na API */
+static const char* nome_nivel(Nivel nivel) {
+	switch (nivel) {
+		case NIVEL_GENEROS:  return "generos";
+		case NIVEL_ARTISTAS: return "artistas";
+		default:             return "obras";
+	}
+}
+
+/** Escreve os campos comuns às respostas de busca, terminando em vírgula
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer de destino
+ * const Resultado* r: resultado de onde saem as métricas
+ * const JsonConsulta* c: consulta que o originou
+ */
+static void serializar_cabecalho(JsonBuffer* jb, const Resultado* r,
+                                 const JsonConsulta* c) {
+	char buf[192];
+
+	jb_adicionar_raw(jb, "\"nivel\":");
+	jb_adicionar_escapado(jb, nome_nivel(c->nivel));
+	jb_adicionar_raw(jb, ",");
 
 	jb_adicionar_raw(jb, "\"genero\":");
 	jb_adicionar_str_ou_null(jb, c->genero);
@@ -144,10 +201,6 @@ void json_serializar_resultado(JsonBuffer* jb, const Resultado* r,
 
 	jb_adicionar_raw(jb, "\"artista\":");
 	jb_adicionar_str_ou_null(jb, c->artista);
-	jb_adicionar_raw(jb, ",");
-
-	jb_adicionar_raw(jb, "\"consulta\":");
-	jb_adicionar_escapado(jb, c->consulta);
 	jb_adicionar_raw(jb, ",");
 
 	jb_adicionar_raw(jb, "\"estrutura\":");
@@ -160,16 +213,51 @@ void json_serializar_resultado(JsonBuffer* jb, const Resultado* r,
 
 	jb_adicionar_raw(jb, "\"metricas\":{");
 	snprintf(buf, sizeof buf,
-	         "\"tempo_ms\":%.6f,\"comparacoes\":%ld,\"total_encontrados\":%d",
-	         resultado_tempo_ms(r), resultado_comparacoes(r), resultado_tamanho(r));
+	         "\"tempo_ms\":%.6f,\"comparacoes\":%ld,\"rotacoes\":%ld,"
+	         "\"total_encontrados\":%d",
+	         resultado_tempo_ms(r), resultado_comparacoes(r),
+	         resultado_rotacoes(r), resultado_tamanho(r));
 	jb_adicionar_raw(jb, buf);
 	jb_adicionar_raw(jb, "},");
+}
+
+void json_serializar_resultado(JsonBuffer* jb, const Resultado* r,
+                               const JsonConsulta* c) {
+	jb_adicionar_raw(jb, "{");
+	serializar_cabecalho(jb, r, c);
 
 	jb_adicionar_raw(jb, "\"resultados\":[");
 	int tot = resultado_tamanho(r);
 	for (int i = 0; i < tot; i++) {
 		if (i > 0) jb_adicionar_raw(jb, ",");
-		json_serializar_obra(jb, resultado_item(r, i));
+		serializar_item(jb, c->nivel, resultado_item(r, i));
+	}
+	jb_adicionar_raw(jb, "]}");
+}
+
+void json_serializar_vista(JsonBuffer* jb, const Resultado* r,
+                           const JsonConsulta* c,
+                           const NoVista* vista, int niveis, int total) {
+	char buf[96];
+	jb_adicionar_raw(jb, "{");
+	serializar_cabecalho(jb, r, c);
+
+	snprintf(buf, sizeof buf, "\"total\":%d,\"niveis\":%d,\"vista\":[",
+	         total, niveis);
+	jb_adicionar_raw(jb, buf);
+
+	int n_pos = (1 << niveis) - 1;
+	for (int i = 0; i < n_pos; i++) {
+		if (i > 0) jb_adicionar_raw(jb, ",");
+		if (!vista[i].item) {
+			jb_adicionar_raw(jb, "null");
+			continue;
+		}
+		snprintf(buf, sizeof buf, "{\"descendentes\":%d,\"item\":",
+		         vista[i].descendentes);
+		jb_adicionar_raw(jb, buf);
+		serializar_item(jb, c->nivel, vista[i].item);
+		jb_adicionar_raw(jb, "}");
 	}
 	jb_adicionar_raw(jb, "]}");
 }
@@ -208,9 +296,11 @@ void json_serializar_comparativo(JsonBuffer* jb,
 		jb_adicionar_escapado(jb, itens[i].algoritmo);
 
 		snprintf(buf, sizeof buf,
-		         ",\"tempo_ms\":%.6f,\"comparacoes\":%ld,\"encontrados\":%d}",
+		         ",\"tempo_ms\":%.6f,\"comparacoes\":%ld,\"rotacoes\":%ld,"
+		         "\"encontrados\":%d}",
 		         resultado_tempo_ms(itens[i].resultado),
 		         resultado_comparacoes(itens[i].resultado),
+		         resultado_rotacoes(itens[i].resultado),
 		         resultado_tamanho(itens[i].resultado));
 		jb_adicionar_raw(jb, buf);
 	}

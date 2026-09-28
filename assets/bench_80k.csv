@@ -1,7 +1,7 @@
-estrutura,operacao,consultas,total_elementos,insercao_ms,media_ms,media_comparacoes
-skip_list,buscar_artista,10000,80042,55.0472,2.355751,80042.00
-skip_list,buscar_genero,10000,80042,55.0472,0.155828,6420.70
-skip_list,buscar_genero_artista,10000,80042,55.0472,0.009433,284.12
-tabela_ord,buscar_artista,10000,80042,138.2947,1.689994,80042.00
-tabela_ord,buscar_genero,10000,80042,138.2947,0.150642,6312.01
-tabela_ord,buscar_genero_artista,10000,80042,138.2947,0.009090,267.74
+estrutura,operacao,consultas,total_elementos,insercao_ms,media_ms,media_comparacoes,media_rotacoes
+arvore_afunilada,buscar_genero,10000,80042,95.4655,0.000155,7.77,3.24
+arvore_afunilada,buscar_artistas_genero,10000,80042,95.4655,0.002249,149.16,3.25
+arvore_afunilada,buscar_obras_artista,10000,80042,95.4655,0.013453,276.37,10.71
+tabela_ord,buscar_genero,10000,80042,316.2518,0.000123,6.88,0.00
+tabela_ord,buscar_artistas_genero,10000,80042,316.2518,0.001706,147.55,0.00
+tabela_ord,buscar_obras_artista,10000,80042,316.2518,0.005355,268.91,0.00

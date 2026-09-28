@@ -2,7 +2,9 @@
 plotar_benchmark.py
 Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
 Descrição: Lê o CSV de saída do benchmark e gera gráficos de barras
-           comparando tempo médio e comparações médias entre as EDs.
+           comparando tempo médio e comparações médias entre as EDs, um par
+           por nível da navegação (gênero, artistas do gênero, obras do
+           artista).
 
 Uso:
     uv run python scripts/plotar_benchmark.py <caminho_csv> [<saida_dir>]
@@ -35,7 +37,7 @@ def gerar_grafico(df: pd.DataFrame, operacao: str, metrica: str,
     ax.grid(axis="x", linestyle="--", alpha=0.4)
 
     for i, valor in enumerate(recorte[metrica]):
-        ax.text(valor, i, f"  {valor:.2f}",
+        ax.text(valor, i, f"  {valor:.4g}",
                 va="center", fontsize=9)
 
     fig.tight_layout()
@@ -63,7 +65,7 @@ def main() -> None:
 
     base = entrada.stem
 
-    for operacao in ("buscar_artista", "buscar_genero", "buscar_genero_artista"):
+    for operacao in ("buscar_genero", "buscar_artistas_genero", "buscar_obras_artista"):
         gerar_grafico(
             df, operacao, "media_ms",
             "Tempo medio de busca", "Tempo (ms)",

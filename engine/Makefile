@@ -6,9 +6,13 @@ CC      := gcc
 CFLAGS  := -std=c11 -Wall -Wextra -Wpedantic -O2 -g
 INCLUDE := -Iinclude
 
-SRC     := src/main.c src/csv.c src/obra.c src/resultado.c \
-           src/skip_list.c src/tabela_ord.c \
-           src/buscador_skip_list.c src/buscador_tabela_ord.c \
+# Núcleo compartilhado pelo servidor e pelos testes
+CORE    := src/csv.c src/obra.c src/resultado.c \
+           src/tabela_ord.c src/arvore_afunilada.c \
+           src/buscador_tabela_ord.c src/buscador_arvore_afunilada.c \
+           src/catalogo.c src/indice.c
+
+SRC     := src/main.c $(CORE) \
            src/benchmark.c src/json.c src/server.c
 OBJ     := $(SRC:.c=.o)
 BIN     := wikiart_server
@@ -19,13 +23,11 @@ TEST_SRC    := test/munit.c \
                test/test_obra.c \
                test/test_resultado.c \
                test/test_csv.c \
-               test/test_skip_list.c \
                test/test_tabela_ord.c \
-               src/obra.c \
-               src/resultado.c \
-               src/csv.c \
-               src/skip_list.c \
-               src/tabela_ord.c
+               test/test_arvore_afunilada.c \
+               test/test_catalogo.c \
+               test/test_indice.c \
+               $(CORE)
 TEST_BIN    := test_runner
 
 .PHONY: all clean run bench valgrind test test-valgrind

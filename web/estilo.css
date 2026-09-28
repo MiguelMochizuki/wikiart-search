@@ -461,7 +461,8 @@ main {
 
 .cartao-estilo,
 .cartao-artista,
-.cartao-obra {
+.cartao-obra,
+.no {
   animation: surgir 0.55s cubic-bezier(0.2, 0.7, 0.3, 1) both;
   animation-delay: calc(min(var(--i, 0), 24) * 26ms);
 }
@@ -476,24 +477,41 @@ main {
   gap: 14px;
 }
 
+/* Capa em cima, legenda embaixo: a pintura de preview é a do artista mais
+ * prolífico do estilo, escolhida pela engine. */
 .cartao-estilo {
   position: relative;
+  display: flex;
+  flex-direction: column;
   background: linear-gradient(155deg, var(--tela-2), var(--tela-1) 70%);
   border: 1px solid var(--linha);
   border-radius: var(--raio);
-  padding: 20px 20px 18px;
+  padding: 0;
   text-align: left;
   color: inherit;
+  font: inherit;
   cursor: pointer;
   overflow: hidden;
   transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
 }
 
-/* Lâmina de luz que varre o cartão no hover */
+.cartao-estilo .moldura {
+  aspect-ratio: 16 / 9;
+  border-bottom: 1px solid var(--linha);
+}
+.cartao-estilo:hover .moldura img.pronta {
+  filter: none;
+  transform: scale(1.05);
+}
+
+.cartao-corpo { padding: 16px 20px 18px; }
+
+/* Lâmina de luz que varre o cartão no hover, por cima da capa */
 .cartao-estilo::before {
   content: '';
   position: absolute;
   inset: 0;
+  z-index: 2;
   pointer-events: none;
   background: linear-gradient(115deg, transparent 35%, rgba(240, 220, 168, 0.09) 50%, transparent 65%);
   transform: translateX(-100%);
@@ -539,22 +557,21 @@ main {
 
 .grade-artistas {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 8px;
 }
 
-/* Linha de índice, não cartão: o nome manda, o fio da esquerda acende e o
- * texto avança um passo quando o cursor entra. */
+/* Linha de índice, não cartão: a miniatura abre a linha, o nome manda, o
+ * fio da esquerda acende e o conteúdo avança um passo quando o cursor entra. */
 .cartao-artista {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   background: rgba(26, 23, 31, 0.5);
   border: 0;
   border-left: 1px solid var(--linha);
-  padding: 11px 14px;
+  padding: 7px 14px 7px 7px;
   color: var(--osso);
   font-family: var(--serifada);
   font-size: 17px;
@@ -566,11 +583,21 @@ main {
 .cartao-artista:hover {
   background: rgba(35, 32, 41, 0.85);
   border-left-color: var(--ouro);
-  padding-left: 18px;
+  padding-left: 11px;
   color: var(--ouro-claro);
 }
 
+.cartao-artista .moldura {
+  flex: 0 0 52px;
+  width: 52px;
+}
+.cartao-artista:hover .moldura img.pronta { filter: none; }
+/* Em 52px a legenda de falha não cabe: fica só o quadro escuro. */
+.cartao-artista .moldura .falha { display: none; }
+
 .cartao-artista .nome {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -761,6 +788,236 @@ main {
 .sentinela { height: 1px; }
 
 /* ==============================
+ * Árvore afunilada
+ * ============================== */
+
+/* Uma fileira por nível da árvore. Cada célula mede exatamente metade da
+ * célula do pai (sem gap entre colunas: o respiro é padding interno), então
+ * os filhos de um nó ficam centrados a 25% e 75% da largura dele. Os fios
+ * saem dessas contas, sem medir nada no JS. */
+.arvore {
+  --elo: 20px;          /* metade do vão entre fileiras */
+  --fio: rgba(200, 168, 86, 0.38);
+  transition: opacity 0.2s;
+}
+/* Enquanto a engine afunila, a forma antiga fica esmaecida e sem clique. */
+.arvore.ocupada { opacity: 0.5; pointer-events: none; }
+
+.arvore-legenda {
+  margin: 0 0 20px;
+  color: var(--cinza);
+  font-family: var(--serifada);
+  font-style: italic;
+  font-size: 16px;
+}
+.arvore-legenda b {
+  font-family: var(--capitular);
+  font-style: normal;
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--ouro-claro);
+}
+
+.arvore-fileira {
+  display: grid;
+  grid-template-columns: repeat(var(--colunas, 1), minmax(0, 1fr));
+}
+.arvore-fileira + .arvore-fileira { margin-top: calc(var(--elo) * 2); }
+
+.arvore-celula {
+  position: relative;
+  display: flex;        /* o nó estica até o fundo: o fio parte da borda dele */
+  min-width: 0;
+  padding: 0 5px;
+}
+
+/* Haste que desce do centro do pai até a travessa */
+.arvore-celula.filho-esq::before,
+.arvore-celula.filho-dir::before {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 1px;
+  height: var(--elo);
+  background: var(--fio);
+}
+
+/* Travessa com as quedas até o topo de cada filho. Com um filho só, vai do
+ * centro até o lado dele. */
+.arvore-celula.filho-esq::after,
+.arvore-celula.filho-dir::after {
+  content: '';
+  position: absolute;
+  top: calc(100% + var(--elo));
+  left: 50%;
+  right: 50%;
+  height: var(--elo);
+  border-top: 1px solid var(--fio);
+}
+.arvore-celula.filho-esq::after { left: 25%; border-left: 1px solid var(--fio); }
+.arvore-celula.filho-dir::after { right: 25%; border-right: 1px solid var(--fio); }
+
+.no {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  background: var(--tela-1);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+}
+.no:hover {
+  border-color: rgba(200, 168, 86, 0.55);
+  transform: translateY(-3px);
+  box-shadow: 0 18px 36px -22px rgba(0, 0, 0, 1), 0 0 32px -20px rgba(200, 168, 86, 0.7);
+}
+
+.no .moldura { aspect-ratio: 4 / 3; }
+.no:hover .moldura img.pronta {
+  filter: none;
+  transform: scale(1.05);
+}
+
+.no-texto {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--linha);
+}
+
+.no-nome {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  font-family: var(--serifada);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.22;
+  color: var(--osso);
+  overflow-wrap: anywhere;
+  transition: color 0.25s;
+}
+.no:hover .no-nome { color: var(--ouro-claro); }
+
+.no-meta {
+  display: block;
+  margin-top: 5px;
+  font-family: var(--capitular);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cinza-fraco);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Selo dos descendentes que ficaram abaixo da última fileira */
+.no-ocultos {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  padding: 1px 6px;
+  background: rgba(6, 5, 8, 0.85);
+  border: 1px solid rgba(200, 168, 86, 0.45);
+  color: var(--ouro-claro);
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Quanto mais fundo, menor o nó: a fileira de baixo tem 8 colunas. Na
+ * segunda, com meia largura cada, a capa 4:3 ficaria mais alta que a raiz. */
+.arvore-fileira[data-fileira="1"] .moldura { aspect-ratio: 16 / 9; }
+.arvore-fileira[data-fileira="2"] .no-nome { font-size: 15px; }
+.arvore-fileira[data-fileira="3"] .no-texto { padding: 8px 9px 9px; }
+.arvore-fileira[data-fileira="3"] .no-nome { font-size: 13.5px; }
+.arvore-fileira[data-fileira="3"] .no-meta { display: none; }
+.arvore-fileira[data-fileira="3"] .moldura .falha { padding: 6px; font-size: 12px; }
+
+/* A raiz ocupa a fileira inteira: pintura à esquerda, ficha à direita. É o
+ * único nó aceso de saída (sem o "obscur"), porque é o último acesso. */
+.no-raiz {
+  flex-direction: row;
+  align-items: stretch;
+  background: linear-gradient(155deg, var(--tela-2), var(--tela-1) 70%);
+  border-color: rgba(200, 168, 86, 0.45);
+  box-shadow: 0 0 0 1px rgba(200, 168, 86, 0.1), 0 30px 60px -44px rgba(200, 168, 86, 0.6);
+}
+.no-raiz:hover { transform: translateY(-2px); }
+
+.no-raiz .moldura {
+  flex: 0 0 min(44%, 440px);
+  aspect-ratio: 4 / 3;
+}
+.no-raiz .moldura img.pronta { filter: none; }
+/* Na obra, a raiz mostra a pintura inteira em vez de recortar. */
+.arvore[data-nivel="obras"] .no-raiz .moldura img { object-fit: contain; }
+.no-raiz:hover .moldura img.pronta { transform: scale(1.02); }
+
+.no-raiz .no-texto {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 28px 34px;
+  border-top: 0;
+  border-left: 1px solid var(--linha);
+}
+
+.no-marca {
+  font-family: var(--capitular);
+  font-size: 10.5px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ouro);
+}
+
+.no-raiz .no-nome {
+  -webkit-line-clamp: 3;
+  font-size: clamp(26px, 3.4vw, 42px);
+  line-height: 1.1;
+}
+.no-raiz .no-meta { font-size: 11px; white-space: normal; }
+
+/* Crédito da pintura de capa, como a plaqueta ao lado de um quadro */
+.no-credito {
+  margin-top: 4px;
+  font-family: var(--serifada);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--cinza);
+}
+
+.no-acao {
+  align-self: flex-start;
+  margin-top: 12px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--ouro);
+  font-family: var(--capitular);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ouro-claro);
+  transition: letter-spacing 0.25s;
+}
+.no-raiz:hover .no-acao { letter-spacing: 0.24em; }
+
+/* ==============================
  * Visor
  * ============================== */
 
@@ -919,6 +1176,31 @@ main {
   .metricas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; }
   .metrica { min-width: 0; }
   .metrica dd { font-size: 17px; }
+  /* Na árvore há uma quinta métrica (rotações): ela fecha a grade sozinha. */
+  .metrica:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+  .grade-artistas { grid-template-columns: minmax(0, 1fr); }
+
+  /* Árvore no celular: a fileira de baixo tem oito colunas de ~40px, então
+     as duas últimas mostram só a pintura (o nome segue no rótulo do botão),
+     e a raiz empilha pintura e ficha. */
+  .arvore { --elo: 12px; }
+  .arvore-legenda { font-size: 14.5px; }
+  .arvore-celula { padding: 0 2px; }
+  .arvore-fileira[data-fileira="1"] .no-texto { padding: 8px 9px 9px; }
+  .arvore-fileira[data-fileira="1"] .no-nome { font-size: 14px; }
+  .arvore-fileira[data-fileira="1"] .no-meta { display: none; }
+  .arvore-fileira[data-fileira="2"] .no-texto,
+  .arvore-fileira[data-fileira="3"] .no-texto,
+  .arvore-fileira[data-fileira="2"] .moldura .falha,
+  .arvore-fileira[data-fileira="3"] .moldura .falha { display: none; }
+  .arvore-fileira[data-fileira="2"] .moldura,
+  .arvore-fileira[data-fileira="3"] .moldura { aspect-ratio: 1 / 1; }
+  .no-ocultos { top: 2px; right: 2px; padding: 0 3px; font-size: 9px; }
+
+  .no-raiz { flex-direction: column; }
+  .no-raiz .moldura { flex: none; width: 100%; }
+  .no-raiz .no-texto { padding: 16px 18px 18px; border-left: 0; border-top: 1px solid var(--linha); }
 }
 
 /* Quem pediu menos movimento fica só com o tema: sem pétalas, sem varreduras. */

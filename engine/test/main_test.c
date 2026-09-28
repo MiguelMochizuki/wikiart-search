@@ -8,16 +8,20 @@
 const MunitSuite* suite_obra_get(void);
 const MunitSuite* suite_resultado_get(void);
 const MunitSuite* suite_csv_get(void);
-const MunitSuite* suite_skip_list_get(void);
 const MunitSuite* suite_tabela_ord_get(void);
+const MunitSuite* suite_arvore_afunilada_get(void);
+const MunitSuite* suite_catalogo_get(void);
+const MunitSuite* suite_indice_get(void);
 
 int main(int argc, char* argv[]) {
 	MunitSuite suites[] = {
 		*suite_obra_get(),
 		*suite_resultado_get(),
 		*suite_csv_get(),
-		*suite_skip_list_get(),
 		*suite_tabela_ord_get(),
+		*suite_arvore_afunilada_get(),
+		*suite_catalogo_get(),
+		*suite_indice_get(),
 		{ NULL, NULL, NULL, 1, MUNIT_SUITE_OPTION_NONE }
 	};
 
