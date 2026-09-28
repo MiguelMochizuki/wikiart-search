@@ -387,6 +387,26 @@ static void handle_comparar(int sock, const ServerContext* ctx, const char* quer
 	}
 }
 
+/** Registra no log a URL pedida, como veio, com a query string
+ *
+ * Os parâmetros ficam codificados como na URL (%20, +), então nada do que
+ * o cliente manda vira quebra de linha. Só um byte de controle cru (um
+ * ESC, por exemplo) mexeria no terminal de quem lê o log, e esse sai
+ * escapado como \xNN. O flush põe a linha no log na hora, mesmo com a
+ * saída redirecionada para arquivo.
+ *
+ * Parâmetros:
+ * const char* uri: URI da requisição
+ */
+static void registrar_url(const char* uri) {
+	for (const unsigned char* p = (const unsigned char*) uri; *p; p++) {
+		if (*p < 0x20 || *p == 0x7f) printf("\\x%02x", *p);
+		else                         putchar(*p);
+	}
+	putchar('\n');
+	fflush(stdout);
+}
+
 static void processar_requisicao(int sock, const ServerContext* ctx) {
 	char req_buf[BUFFER_REQ];
 	ssize_t lidos = read(sock, req_buf, sizeof(req_buf) - 1);
@@ -395,6 +415,8 @@ static void processar_requisicao(int sock, const ServerContext* ctx) {
 
 	char metodo[16], uri[1024];
 	if (sscanf(req_buf, "%15s %1023s", metodo, uri) < 2) return;
+
+	registrar_url(uri);
 
 	if (strcmp(metodo, "OPTIONS") == 0) {
 		enviar_resposta(sock, 204, "No Content", "text/plain", "", 0);
@@ -494,6 +516,7 @@ int server_iniciar(const Csv* csv, int porta) {
 	printf("  - GET /api/busca?genero=<g>&artista=<a>&ed=<ed>&foco=<id>\n");
 	printf("      \"foco\" e opcional: acessa um item e, na arvore, o leva a raiz\n");
 	printf("  - GET /api/comparar?genero=<g>&artista=<a>\n");
+	printf("Log de acesso: a URL de cada requisicao, uma por linha\n");
 	printf("======================================================\n\n");
 
 	while (1) {
