@@ -1,6 +1,6 @@
 /**
  * test_obra.c
- * Autor: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Testes unitários do TAD Obra.
  */
 #include <string.h>

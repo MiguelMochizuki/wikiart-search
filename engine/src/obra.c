@@ -1,6 +1,6 @@
 /**
  * obra.c
- * Autor: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Implementação do TAD Obra.
  */
 #include <stdlib.h>

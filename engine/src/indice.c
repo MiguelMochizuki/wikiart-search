@@ -168,6 +168,26 @@ Resultado* indice_buscar(Indice* ix, Nivel nivel, const Chave* chave) {
 			      chave ? CMP_CHAVE[nivel] : NULL, chave);
 }
 
+/** Busca uma página do intervalo da chave num nível
+ *
+ * Parâmetros:
+ * Indice* ix: ponteiro para o índice
+ * Nivel nivel: nível consultado
+ * const Chave* chave: chave procurada, ou NULL para o nível todo
+ * int offset: itens do intervalo a pular
+ * int limite: máximo de itens a devolver
+ *
+ * Retorna Resultado*: a página, com o total em resultado_total, ou NULL
+ *                     se o nível é inválido
+ */
+Resultado* indice_buscar_pagina(Indice* ix, Nivel nivel, const Chave* chave,
+				int offset, int limite) {
+	if ((unsigned) nivel >= N_NIVEIS) return NULL;
+	return ix->ed->buscar_pagina(ix->niveis[nivel],
+				     chave ? CMP_CHAVE[nivel] : NULL, chave,
+				     offset, limite);
+}
+
 /** Recorta a forma da ED num nível, restrita ao intervalo da chave
  *
  * Parâmetros:

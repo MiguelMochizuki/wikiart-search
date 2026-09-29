@@ -21,6 +21,7 @@
 /* Semente das consultas. Reiniciada a cada ED, para que todas respondam
  * exatamente à mesma sequência. */
 #define SEMENTE_CONSULTAS 42
+#define PAGINA_OBRAS 30  /* itens de uma página de obras */
 
 /* ==============================
  * Tipos internos
@@ -66,10 +67,13 @@ static double agora_ms(void) {
  * Indice* ix: índice montado
  * Nivel nivel: nível medido
  * int n_buscas: número de consultas
+ * int pagina: 0 para buscar o intervalo todo; senão, itens da primeira
+ *             página pedida (busca paginada)
  *
  * Retorna Medicao: médias da operação
  */
-static Medicao medir(const Csv* csv, Indice* ix, Nivel nivel, int n_buscas) {
+static Medicao medir(const Csv* csv, Indice* ix, Nivel nivel, int n_buscas,
+		     int pagina) {
 	int n = csv_tamanho(csv);
 	double t_total = 0.0;
 	long comp_total = 0;
@@ -82,7 +86,8 @@ static Medicao medir(const Csv* csv, Indice* ix, Nivel nivel, int n_buscas) {
 			nivel == NIVEL_OBRAS ? obra_artista(o) : NULL,
 			-1
 		};
-		Resultado* r = indice_buscar(ix, nivel, &k);
+		Resultado* r = pagina ? indice_buscar_pagina(ix, nivel, &k, 0, pagina)
+				      : indice_buscar(ix, nivel, &k);
 
 		t_total    += resultado_tempo_ms(r);
 		comp_total += resultado_comparacoes(r);
@@ -136,15 +141,18 @@ static void benchmark_um(const Csv* csv, const Catalogo* cat,
 	}
 
 	srand(SEMENTE_CONSULTAS);
-	Medicao genero   = medir(csv, ix, NIVEL_GENEROS,  n_buscas);
-	Medicao artistas = medir(csv, ix, NIVEL_ARTISTAS, n_buscas);
-	Medicao obras    = medir(csv, ix, NIVEL_OBRAS,    n_buscas);
+	Medicao genero   = medir(csv, ix, NIVEL_GENEROS,  n_buscas, 0);
+	Medicao artistas = medir(csv, ix, NIVEL_ARTISTAS, n_buscas, 0);
+	Medicao obras    = medir(csv, ix, NIVEL_OBRAS,    n_buscas, 0);
+	srand(SEMENTE_CONSULTAS);
+	Medicao pagina   = medir(csv, ix, NIVEL_OBRAS,    n_buscas, PAGINA_OBRAS);
 
 	indice_liberar(ix);
 
 	imprimir(b->nome, "buscar_genero",           n_buscas, n, insercao_ms, genero);
 	imprimir(b->nome, "buscar_artistas_genero",  n_buscas, n, insercao_ms, artistas);
 	imprimir(b->nome, "buscar_obras_artista",    n_buscas, n, insercao_ms, obras);
+	imprimir(b->nome, "buscar_obras_pagina",     n_buscas, n, insercao_ms, pagina);
 }
 
 /* ==============================

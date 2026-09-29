@@ -25,6 +25,7 @@ typedef struct no_t {
 	struct no_t* esq;
 	struct no_t* dir;
 	struct no_t* pai;
+	int tam;   /* nós da subárvore, ele incluso */
 } No;
 
 struct arvore_afunilada_t {
@@ -45,6 +46,11 @@ static double agora_ms(void) {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	return ts.tv_sec * 1000.0 + ts.tv_nsec / 1e6;
+}
+
+/** Tamanho da subárvore de u, ou 0 se u é NULL */
+static int tam(const No* u) {
+	return u ? u->tam : 0;
 }
 
 /** Situa um nó em relação ao intervalo da chave
@@ -145,6 +151,84 @@ static No* sucessor(No* u) {
 	return u->pai;
 }
 
+/** Quantos nós do intervalo há na subárvore de x
+ *
+ * x está no intervalo. À esquerda de x nada passa do fim do intervalo,
+ * então a descida só procura o começo: um nó de antes descarta a si e à
+ * sua esquerda, e um de dentro leva consigo toda a sua direita, que
+ * fica entre ele e x. À direita é o espelho. Custo O(h), sem percorrer
+ * o intervalo.
+ *
+ * Parâmetros:
+ * const No* x: nó dentro do intervalo
+ * Comparador cmp: comparador item x chave, ou NULL
+ * const void* chave: chave do intervalo
+ * long* comp: contador de comparações, ou NULL
+ *
+ * Retorna int: nós do intervalo na subárvore de x, incluindo x
+ */
+static int contar_intervalo(const No* x, Comparador cmp, const void* chave,
+			    long* comp) {
+	int n = 1;
+
+	for (const No* u = x->esq; u; ) {
+		if (situar(u, cmp, chave, comp) < 0) {
+			u = u->dir;
+		} else {
+			n += 1 + tam(u->dir);
+			u = u->esq;
+		}
+	}
+	for (const No* u = x->dir; u; ) {
+		if (situar(u, cmp, chave, comp) > 0) {
+			u = u->esq;
+		} else {
+			n += 1 + tam(u->esq);
+			u = u->dir;
+		}
+	}
+	return n;
+}
+
+/** Posição em ordem de u na árvore inteira (0 é o menor)
+ *
+ * Parâmetros:
+ * const No* u: nó
+ *
+ * Retorna int: quantos nós vêm antes de u
+ */
+static int posto(const No* u) {
+	int r = tam(u->esq);
+	while (u->pai) {
+		if (u->pai->dir == u) r += 1 + tam(u->pai->esq);
+		u = u->pai;
+	}
+	return r;
+}
+
+/** Nó que ocupa a posição r em ordem
+ *
+ * Parâmetros:
+ * No* raiz: raiz da árvore
+ * int r: posição desejada (0 <= r < tamanho)
+ *
+ * Retorna No*: o nó da posição r
+ */
+static No* selecionar(No* raiz, int r) {
+	No* u = raiz;
+	for (;;) {
+		int e = tam(u->esq);
+		if (r < e) {
+			u = u->esq;
+		} else if (r == e) {
+			return u;
+		} else {
+			r -= e + 1;
+			u = u->dir;
+		}
+	}
+}
+
 /** Gira x sobre o pai, preservando a ordem em-ordem
  *
  * x sobe um nível e o pai desce para o lado oposto. A subárvore de x
@@ -177,6 +261,10 @@ static void rotacionar(ArvoreAfunilada* a, No* x) {
 	} else {
 		g->dir = x;
 	}
+
+	/* Só p e x mudaram de subárvore: p primeiro, que agora é filho de x. */
+	p->tam = 1 + tam(p->esq) + tam(p->dir);
+	x->tam = 1 + tam(x->esq) + tam(x->dir);
 }
 
 /** Afunila x até a raiz
@@ -281,12 +369,14 @@ void arvore_afunilada_inserir(ArvoreAfunilada* a, const void* item) {
 	novo->item = item;
 	novo->esq  = NULL;
 	novo->dir  = NULL;
+	novo->tam  = 1;
 
 	No* pai = NULL;
 	No* u = a->raiz;
 	int pela_esq = 0;
 	while (u) {
 		pai = u;
+		u->tam++;  /* o nó novo vai parar na subárvore de u */
 		pela_esq = a->cmp_itens(u->item, item) > 0;
 		u = pela_esq ? u->esq : u->dir;
 	}
@@ -375,6 +465,63 @@ Resultado* arvore_afunilada_buscar(ArvoreAfunilada* a, Comparador cmp,
 	return r;
 }
 
+/** Busca uma página do intervalo descrito pela chave, afunilando
+ *
+ * Afunila o nó mais alto do intervalo como a busca completa. Os
+ * tamanhos guardados nos nós dão o total do intervalo e a posição do
+ * primeiro item da página sem percorrer o que fica fora dela: a coleta
+ * anda só `limite` sucessores, e o comparador só é chamado na descida
+ * e na contagem. Custo O(log n + limite) amortizado.
+ *
+ * Parâmetros:
+ * ArvoreAfunilada* a: ponteiro para a árvore
+ * Comparador cmp: comparador item x chave, ou NULL para todos
+ * const void* chave: chave procurada (ignorada se cmp for NULL)
+ * int offset: quantos itens do intervalo pular
+ * int limite: máximo de itens a devolver
+ *
+ * Retorna Resultado*: a página, em ordem, com o total do intervalo
+ */
+Resultado* arvore_afunilada_buscar_pagina(ArvoreAfunilada* a, Comparador cmp,
+					  const void* chave, int offset,
+					  int limite) {
+	if (offset < 0) offset = 0;
+	if (limite < 0) limite = 0;
+
+	Resultado* r = resultado_criar(limite < 1024 ? limite : 1024);
+	if (!r) return NULL;
+
+	long comp = 0;
+	long rotacoes = 0;
+	double t0 = agora_ms();
+
+	No* ultimo = NULL;
+	No* x = descer(a->raiz, cmp, chave, &comp, &ultimo);
+	int total = 0;
+
+	if (x) {
+		rotacoes = afunilar(a, x);
+		total = contar_intervalo(x, cmp, chave, &comp);
+
+		if (offset < total) {
+			No* m = menor_do_intervalo(x, cmp, chave, &comp);
+			No* u = selecionar(a->raiz, posto(m) + offset);
+			int n = total - offset;
+			if (n > limite) n = limite;
+			for (; n > 0; n--, u = sucessor(u)) {
+				resultado_adicionar(r, u->item);
+			}
+		}
+	} else if (ultimo) {
+		rotacoes = afunilar(a, ultimo);
+	}
+
+	resultado_set_total(r, total);
+	resultado_set_metricas(r, agora_ms() - t0, comp);
+	resultado_set_rotacoes(r, rotacoes);
+	return r;
+}
+
 /** Recorta os primeiros níveis da árvore restrita a um intervalo
  *
  * Parâmetros:
@@ -396,13 +543,9 @@ int arvore_afunilada_vista(const ArvoreAfunilada* a, Comparador cmp,
 	const int primeira_folha = n_pos / 2;  /* posições da última fileira */
 
 	No* nos[MAX_POS];
-	int posto[MAX_POS];  /* posição em ordem do nó dentro do intervalo */
-	int ini[MAX_POS];    /* trecho de postos que a subárvore cobre */
-	int fim[MAX_POS];
 
 	for (int i = 0; i < n_pos; i++) {
 		nos[i] = NULL;
-		posto[i] = -1;
 		vista[i].item = NULL;
 		vista[i].descendentes = 0;
 	}
@@ -418,40 +561,14 @@ int arvore_afunilada_vista(const ArvoreAfunilada* a, Comparador cmp,
 		nos[2 * i + 2] = descer(nos[i]->dir, cmp, chave, NULL, NULL);
 	}
 
-	/* Um percurso em ordem pelo intervalo dá o total e o posto de cada
-	 * nó da vista. Sai da subárvore de nos[0] só para um ancestral
-	 * dele, que está fora do intervalo e encerra o laço. */
-	int total = 0;
-	for (No* u = menor_do_intervalo(nos[0], cmp, chave, NULL);
-	     u && situar(u, cmp, chave, NULL) == 0;
-	     u = sucessor(u)) {
-		for (int i = 0; i < n_pos; i++) {
-			if (nos[i] == u) {
-				posto[i] = total;
-				break;
-			}
-		}
-		total++;
-	}
-
-	/* Cada subárvore cobre um trecho contíguo de postos: a raiz, todos;
-	 * o filho esquerdo, os postos antes do pai dentro do trecho dele; o
-	 * direito, os depois. O tamanho do trecho, menos o próprio nó, é o
-	 * número de descendentes. */
-	ini[0] = 0;
-	fim[0] = total - 1;
+	/* Cada nó da vista é o mais alto do intervalo na sua subárvore, então
+	 * os descendentes dele são os nós do intervalo que ela contém, menos
+	 * ele próprio. O tamanho guardado nos nós evita percorrer o intervalo. */
 	for (int i = 0; i < n_pos; i++) {
 		if (!nos[i]) continue;
-
 		vista[i].item = nos[i]->item;
-		vista[i].descendentes = fim[i] - ini[i];
-
-		if (i < primeira_folha) {
-			ini[2 * i + 1] = ini[i];
-			fim[2 * i + 1] = posto[i] - 1;
-			ini[2 * i + 2] = posto[i] + 1;
-			fim[2 * i + 2] = fim[i];
-		}
+		vista[i].descendentes =
+			contar_intervalo(nos[i], cmp, chave, NULL) - 1;
 	}
-	return total;
+	return vista[0].descendentes + 1;
 }

@@ -1,6 +1,6 @@
 /**
  * csv.h
- * Autor: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Protótipo do TAD Csv. Carrega e itera sobre os metadados
  *            do WikiArt.
  *

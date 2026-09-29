@@ -1,3 +1,9 @@
+/**
+ * main.c
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+ * Descrição: Ponto de entrada da engine. Carrega o CSV e, conforme os
+ *            argumentos, lista obras, roda o benchmark ou sobe o servidor.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,6 +12,12 @@
 #include "buscador.h"
 #include "server.h"
 
+/** Imprime as primeiras obras do CSV
+ *
+ * Parâmetros:
+ * const Csv* csv: metadados carregados
+ * int limite: máximo de obras a imprimir
+ */
 static void listar_primeiras(const Csv* csv, int limite) {
 	int n = csv_tamanho(csv);
 	int fim = (limite < n) ? limite : n;
@@ -20,6 +32,11 @@ static void listar_primeiras(const Csv* csv, int limite) {
 	}
 }
 
+/** Imprime os modos de uso no stderr
+ *
+ * Parâmetros:
+ * const char* prog: nome do executável (argv[0])
+ */
 static void uso(const char* prog) {
 	fprintf(stderr,
 		"Uso:\n"
@@ -30,6 +47,14 @@ static void uso(const char* prog) {
 		prog, prog, prog, prog);
 }
 
+/** Escolhe o modo pelos argumentos: listagem, --bench ou --server
+ *
+ * Parâmetros:
+ * int argc: número de argumentos
+ * char** argv: argumentos (CSV, modo e seu parâmetro opcional)
+ *
+ * Retorna int: 0 em sucesso, 1 se o CSV não carregar
+ */
 int main(int argc, char** argv) {
 	if (argc > 1 && strcmp(argv[1], "--help") == 0) {
 		uso(argv[0]);

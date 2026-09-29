@@ -101,6 +101,20 @@ const Buscador* indice_ed(const Indice* ix);
  */
 Resultado* indice_buscar(Indice* ix, Nivel nivel, const Chave* chave);
 
+/** Busca uma página do intervalo da chave num nível
+ *
+ * Parâmetros:
+ * Indice* ix: ponteiro para o índice (a busca pode reorganizar a ED)
+ * Nivel nivel: nível consultado
+ * const Chave* chave: chave procurada, ou NULL para o nível todo
+ * int offset: itens do intervalo a pular
+ * int limite: máximo de itens a devolver
+ *
+ * Retorna Resultado*: a página; resultado_total dá o intervalo inteiro
+ */
+Resultado* indice_buscar_pagina(Indice* ix, Nivel nivel, const Chave* chave,
+				int offset, int limite);
+
 /** Recorta a forma da ED num nível, restrita ao intervalo da chave
  *
  * Parâmetros:

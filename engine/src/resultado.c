@@ -1,6 +1,6 @@
 /**
  * resultado.c
- * Autor: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Implementação do TAD Resultado.
  */
 #include <stdlib.h>
@@ -14,6 +14,7 @@ struct resultado_t {
 	const void** itens;
 	int n;
 	int cap;
+	int total;
 	double tempo_ms;
 	long comparacoes;
 	long rotacoes;
@@ -44,6 +45,7 @@ Resultado* resultado_criar(int capacidade_inicial) {
 
 	r->n           = 0;
 	r->cap         = capacidade_inicial;
+	r->total       = -1;
 	r->tempo_ms    = 0.0;
 	r->comparacoes = 0;
 	r->rotacoes    = 0;
@@ -101,6 +103,19 @@ void resultado_set_rotacoes(Resultado* r, long rotacoes) {
 	r->rotacoes = rotacoes;
 }
 
+/** Define quantos itens o intervalo buscado tem no total
+ *
+ * Só as buscas paginadas chamam: nelas o resultado guarda uma página, e
+ * o total diz quantos itens o intervalo inteiro tem.
+ *
+ * Parâmetros:
+ * Resultado* r: ponteiro para resultado
+ * int total: itens do intervalo, dentro e fora da página
+ */
+void resultado_set_total(Resultado* r, int total) {
+	r->total = total;
+}
+
 /* ==============================
  * Getters
  * ============================== */
@@ -124,4 +139,9 @@ long resultado_comparacoes(const Resultado* r) {
 
 long resultado_rotacoes(const Resultado* r) {
 	return r->rotacoes;
+}
+
+/** Itens do intervalo buscado; sem paginação, o próprio tamanho */
+int resultado_total(const Resultado* r) {
+	return r->total < 0 ? r->n : r->total;
 }

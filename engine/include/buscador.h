@@ -30,6 +30,9 @@
  * liberar: destrói a estrutura e seus nós internos
  * inserir: adiciona um item à estrutura
  * buscar: devolve o intervalo da chave (cmp NULL: todos os itens)
+ * buscar_pagina: como buscar, mas devolve só `limite` itens a partir do
+ *        `offset`-ésimo do intervalo; resultado_total dá o tamanho do
+ *        intervalo inteiro
  * vista: recorta os primeiros níveis da forma da ED, restritos ao
  *        intervalo da chave; NULL nas EDs sem forma hierárquica
  */
@@ -41,6 +44,8 @@ typedef struct buscador_t {
 	void        (*liberar)(void*);
 	void        (*inserir)(void*, const void* item);
 	Resultado*  (*buscar)(void*, Comparador cmp, const void* chave);
+	Resultado*  (*buscar_pagina)(void*, Comparador cmp, const void* chave,
+				     int offset, int limite);
 	int         (*vista)(const void*, Comparador cmp, const void* chave,
 			     NoVista vista[], int niveis);
 } Buscador;

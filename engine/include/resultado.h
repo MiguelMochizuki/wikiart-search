@@ -1,6 +1,6 @@
 /**
  * resultado.h
- * Autor: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Protótipo do TAD Resultado. Encapsula o retorno de uma busca
  *            com métricas de tempo, comparações e rotações.
  *
@@ -65,11 +65,20 @@ void resultado_set_metricas(Resultado* r, double tempo_ms, long comparacoes);
  */
 void resultado_set_rotacoes(Resultado* r, long rotacoes);
 
+/** Define quantos itens o intervalo buscado tem no total
+ *
+ * Parâmetros:
+ * Resultado* r: ponteiro para resultado
+ * int total: itens do intervalo, dentro e fora da página
+ */
+void resultado_set_total(Resultado* r, int total);
+
 /* ==============================
  * Getters
  * ============================== */
 
 int resultado_tamanho(const Resultado* r);
+int resultado_total(const Resultado* r);
 const void* resultado_item(const Resultado* r, int indice);
 double resultado_tempo_ms(const Resultado* r);
 long resultado_comparacoes(const Resultado* r);

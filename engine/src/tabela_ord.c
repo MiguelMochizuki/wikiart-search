@@ -74,6 +74,36 @@ static int limite_inferior(const TabelaOrd* t, Comparador cmp,
 	return inf;
 }
 
+/** Encontra o índice do primeiro item que vem depois do intervalo
+ *
+ * Mesma busca de limite_inferior, mas o item dentro do intervalo
+ * também fica à esquerda. Se nenhum vier depois, devolve n.
+ *
+ * Parâmetros:
+ * const TabelaOrd* t: ponteiro para a tabela
+ * Comparador cmp: comparador item x chave
+ * const void* chave: chave procurada
+ * long* comp_out: contador de comparações, incrementado
+ *
+ * Retorna int: índice encontrado (0 a n)
+ */
+static int limite_superior(const TabelaOrd* t, Comparador cmp,
+			   const void* chave, long* comp_out) {
+	int inf = 0;
+	int sup = t->n;
+
+	while (inf < sup) {
+		int meio = inf + (sup - inf) / 2;
+		(*comp_out)++;
+		if (cmp(t->itens[meio], chave) <= 0) {
+			inf = meio + 1;
+		} else {
+			sup = meio;
+		}
+	}
+	return inf;
+}
+
 /** Garante que o array tem espaço para mais um elemento
  *
  * Parâmetros:
@@ -219,6 +249,49 @@ Resultado* tabela_ord_buscar(const TabelaOrd* t, Comparador cmp,
 		}
 	}
 
+	resultado_set_metricas(r, agora_ms() - t0, comp);
+	return r;
+}
+
+/** Busca uma página do intervalo descrito pela chave
+ *
+ * Dois limites por busca binária dão o início e o tamanho do intervalo,
+ * e a página é uma fatia do array. Custo O(log n + limite).
+ *
+ * Parâmetros:
+ * const TabelaOrd* t: ponteiro para a tabela
+ * Comparador cmp: comparador item x chave, ou NULL para todos
+ * const void* chave: chave procurada (ignorada se cmp for NULL)
+ * int offset: quantos itens do intervalo pular
+ * int limite: máximo de itens a devolver
+ *
+ * Retorna Resultado*: a página, com o total do intervalo
+ */
+Resultado* tabela_ord_buscar_pagina(const TabelaOrd* t, Comparador cmp,
+				    const void* chave, int offset,
+				    int limite) {
+	if (offset < 0) offset = 0;
+	if (limite < 0) limite = 0;
+
+	Resultado* r = resultado_criar(limite < 1024 ? limite : 1024);
+	if (!r) return NULL;
+
+	long comp = 0;
+	double t0 = agora_ms();
+
+	int ini = 0;
+	int fim = t->n;
+	if (cmp) {
+		ini = limite_inferior(t, cmp, chave, &comp);
+		fim = limite_superior(t, cmp, chave, &comp);
+	}
+
+	int total = fim - ini;
+	for (int i = ini + offset; i < fim && i < ini + offset + limite; i++) {
+		resultado_adicionar(r, t->itens[i]);
+	}
+
+	resultado_set_total(r, total);
 	resultado_set_metricas(r, agora_ms() - t0, comp);
 	return r;
 }

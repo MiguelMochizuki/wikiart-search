@@ -93,4 +93,24 @@ const void* tabela_ord_item(const TabelaOrd* t, int indice);
 Resultado* tabela_ord_buscar(const TabelaOrd* t, Comparador cmp,
 			     const void* chave);
 
+/** Busca uma página do intervalo descrito pela chave
+ *
+ * Dois limites por busca binária dão o início e o tamanho do intervalo,
+ * e a página é uma fatia do array. Custo O(log n + limite),
+ * independente do tamanho do intervalo.
+ *
+ * Parâmetros:
+ * const TabelaOrd* t: ponteiro para a tabela
+ * Comparador cmp: comparador item x chave, ou NULL para todos
+ * const void* chave: chave procurada (ignorada se cmp for NULL)
+ * int offset: quantos itens do intervalo pular
+ * int limite: máximo de itens a devolver
+ *
+ * Retorna Resultado*: a página, com o total do intervalo em
+ *                     resultado_total
+ */
+Resultado* tabela_ord_buscar_pagina(const TabelaOrd* t, Comparador cmp,
+				    const void* chave, int offset,
+				    int limite);
+
 #endif

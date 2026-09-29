@@ -38,7 +38,7 @@ const API = (() => {
  * responde 302 para uma URL assinada do GCS, sem exigir token. */
 const IMG_BASE = 'https://www.kaggle.com/api/v1/datasets/download/steubk/wikiart/';
 
-const PAGINA = 60; // obras renderizadas por lote no modo lista
+const PAGINA = 30; // obras pedidas à engine por página no modo lista
 
 const NOMES_ED = {
 	tabela_ord: 'Tabela ordenada',
@@ -92,7 +92,9 @@ const estado = {
 	genero: null,   // nome cru, como está no CSV
 	artista: null,  // idem
 	lista: [],      // itens do nível no modo lista (a base dos filtros)
-	obras: [],
+	obras: [],      // obras já recebidas (as páginas pedidas até agora)
+	totalObras: 0,  // obras do artista na engine, dentro e fora das páginas
+	carregando: false,
 	renderizadas: 0,
 	/* Cresce a cada consulta disparada. Resposta com selo antigo é descartada:
 	 * trocar de nível, de estrutura ou afunilar rápido não pode deixar a
@@ -277,6 +279,7 @@ function abrirNivel(nivel) {
 async function carregar(nivel, foco) {
 	const cfg = NIVEIS[nivel];
 	const selo = ++estado.selo;
+	estado.carregando = false;
 
 	prepararCabecalho(nivel);
 	/* Afunilar mantém a árvore na tela, esmaecida, até a nova forma chegar:
@@ -290,6 +293,9 @@ async function carregar(nivel, foco) {
 
 	const params = cfg.params();
 	if (foco !== undefined) params.foco = foco;
+	/* Só a primeira página de obras: a engine conta o intervalo pelos tamanhos
+	 * guardados na árvore, sem percorrê-lo, e a rolagem pede as seguintes. */
+	if (nivel === 'obras') params.limite = PAGINA;
 
 	let dados;
 	try {
@@ -314,11 +320,12 @@ async function carregar(nivel, foco) {
 	if (emArvore) {
 		estado.lista = [];
 		estado.obras = [];
+		estado.totalObras = 0;
 		estado.renderizadas = 0;
 		prepararCabecalho(nivel, dados.total);
 		renderArvore(nivel, dados);
 	} else {
-		renderLista(nivel, dados.resultados || []);
+		renderLista(nivel, dados.resultados || [], dados.metricas.total_encontrados);
 	}
 }
 
@@ -457,13 +464,14 @@ function abrirItem(nivel, item) {
  * Modo lista (tabela ordenada)
  * ============================== */
 
-function renderLista(nivel, itens) {
+function renderLista(nivel, itens, total) {
 	if (nivel === 'obras') {
 		estado.lista = [];
 		estado.obras = itens;
+		estado.totalObras = total;
 		estado.renderizadas = 0;
 		$('grade-obras').textContent = '';
-		prepararCabecalho('obras', itens.length);
+		prepararCabecalho('obras', total);
 		renderLoteObras();
 		return;
 	}
@@ -561,7 +569,7 @@ function renderArtistas() {
 	}
 }
 
-/** Renderiza o próximo lote de obras (a rolagem pede os seguintes) */
+/** Renderiza as obras recebidas que ainda não estão na grade */
 function renderLoteObras() {
 	const grade = $('grade-obras');
 
@@ -571,16 +579,45 @@ function renderLoteObras() {
 		return;
 	}
 
-	const fim = Math.min(estado.renderizadas + PAGINA, estado.obras.length);
+	const fim = estado.obras.length;
 	const frag = document.createDocumentFragment();
 
-	/* O escalonamento reinicia a cada lote: o segundo lote entra rolando, e
+	/* O escalonamento reinicia a cada página: a segunda entra rolando, e
 	 * contar desde o início da lista deixaria todos com o atraso no teto. */
 	for (let i = estado.renderizadas; i < fim; i++) {
 		frag.append(criarCartaoObra(estado.obras[i], i - estado.renderizadas));
 	}
 	grade.append(frag);
 	estado.renderizadas = fim;
+}
+
+/** Pede à engine a próxima página de obras e a acrescenta à grade
+ *
+ * Só no modo lista, com a grade à vista. Uma resposta atrasada de outra
+ * tela é descartada pelo selo, como em carregar.
+ */
+async function maisObras() {
+	if (estado.nivel !== 'obras' || $('grade-obras').hidden || estado.carregando ||
+	    estado.obras.length >= estado.totalObras) return;
+
+	const selo = estado.selo;
+	estado.carregando = true;
+	try {
+		const params = { ...NIVEIS.obras.params(), offset: estado.obras.length, limite: PAGINA };
+		const dados = await consultar(NIVEIS.obras.rota, params);
+		if (selo !== estado.selo) return;
+		estado.obras.push(...(dados.resultados || []));
+		renderLoteObras();
+	} catch (err) {
+		if (selo === estado.selo) avisarEngine(`Falha ao consultar a engine: ${err.message}.`);
+	} finally {
+		if (selo === estado.selo) {
+			estado.carregando = false;
+			/* Sentinela ainda à vista (tela alta): re-observar dispara de novo. */
+			observadorObras.unobserve($('sentinela'));
+			observadorObras.observe($('sentinela'));
+		}
+	}
 }
 
 function criarCartaoObra(obra, ordem) {
@@ -851,6 +888,11 @@ function semearPetalas() {
  * Início
  * ============================== */
 
+/* Pede a próxima página quando a sentinela do fim da grade chega perto. */
+const observadorObras = new IntersectionObserver((entradas) => {
+	if (entradas[0].isIntersecting) maisObras();
+}, { rootMargin: '600px' });
+
 function iniciar() {
 	semearPetalas();
 	restaurarEd();
@@ -867,11 +909,7 @@ function iniciar() {
 	window.addEventListener('hashchange', rotear);
 
 	/* Rolagem infinita: a sentinela fica no fim da grade de obras. */
-	new IntersectionObserver((entradas) => {
-		if (entradas[0].isIntersecting && estado.renderizadas < estado.obras.length) {
-			renderLoteObras();
-		}
-	}, { rootMargin: '600px' }).observe($('sentinela'));
+	observadorObras.observe($('sentinela'));
 
 	checarStatus();
 	rotear();

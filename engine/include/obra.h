@@ -1,6 +1,6 @@
 /**
  * obra.h
- * Autor: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Protótipo do TAD Obra
  */
 #ifndef OBRA_H

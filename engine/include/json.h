@@ -1,6 +1,8 @@
 /**
  * json.h
- * Descrição: Utilitários para serialização de TADs em JSON com buffer dinâmico.
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+ * Descrição: Serialização em JSON dos TADs da engine (obras, gêneros,
+ *            artistas, resultados e vistas) sobre um buffer dinâmico.
  */
 #ifndef JSON_H
 #define JSON_H

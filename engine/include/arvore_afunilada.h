@@ -102,6 +102,28 @@ const void* arvore_afunilada_raiz(const ArvoreAfunilada* a);
 Resultado* arvore_afunilada_buscar(ArvoreAfunilada* a, Comparador cmp,
 				   const void* chave);
 
+/** Busca uma página do intervalo descrito pela chave, afunilando
+ *
+ * Como arvore_afunilada_buscar, mas devolve só `limite` itens a partir
+ * do `offset`-ésimo do intervalo. Cada nó guarda o tamanho da sua
+ * subárvore, o que dá o total do intervalo e a posição da página em
+ * O(h), sem percorrer o resto. Custo O(log n + limite) amortizado, em
+ * vez de O(log n + k) com k o tamanho do intervalo.
+ *
+ * Parâmetros:
+ * ArvoreAfunilada* a: ponteiro para a árvore
+ * Comparador cmp: comparador item x chave, ou NULL para todos
+ * const void* chave: chave procurada (ignorada se cmp for NULL)
+ * int offset: quantos itens do intervalo pular
+ * int limite: máximo de itens a devolver
+ *
+ * Retorna Resultado*: a página, em ordem, com o total do intervalo em
+ *                     resultado_total
+ */
+Resultado* arvore_afunilada_buscar_pagina(ArvoreAfunilada* a, Comparador cmp,
+					  const void* chave, int offset,
+					  int limite);
+
 /** Recorta os primeiros níveis da árvore restrita a um intervalo
  *
  * A vista mostra só os nós do intervalo, mantendo entre eles a

@@ -1,6 +1,6 @@
 /**
  * csv.c
- * Autor: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Implementação do TAD Csv. Parser simples de CSV com
  *            separador ';'.
  */

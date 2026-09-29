@@ -37,6 +37,13 @@ static int aa_vista(const void* p, Comparador cmp, const void* chave,
 				      vista, niveis);
 }
 
+/** Busca uma página do intervalo da chave */
+static Resultado* aa_pagina(void* p, Comparador cmp, const void* chave,
+			       int offset, int limite) {
+	return arvore_afunilada_buscar_pagina((ArvoreAfunilada*) p, cmp, chave,
+					       offset, limite);
+}
+
 /* ==============================
  * Instância pública
  * ============================== */
@@ -49,5 +56,6 @@ const Buscador BUSCADOR_ARVORE_AFUNILADA = {
 	.liberar            = aa_liberar,
 	.inserir            = aa_inserir,
 	.buscar             = aa_buscar,
+	.buscar_pagina      = aa_pagina,
 	.vista              = aa_vista
 };

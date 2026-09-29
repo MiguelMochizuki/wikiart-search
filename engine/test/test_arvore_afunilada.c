@@ -553,6 +553,87 @@ static MunitResult test_operacoes_aleatorias_preservam_ordem(const MunitParamete
 	return MUNIT_OK;
 }
 
+
+/** A página é a fatia [offset, offset+limite) do intervalo completo */
+static void conferir_pagina(Resultado* completo, Resultado* pag, int offset,
+			    int limite) {
+	int k = resultado_tamanho(completo);
+	int esperado = offset >= k ? 0 : k - offset;
+	if (esperado > limite) esperado = limite;
+
+	munit_assert_int(resultado_total(pag), ==, k);
+	munit_assert_int(resultado_tamanho(pag), ==, esperado);
+	for (int i = 0; i < esperado; i++) {
+		munit_assert_ptr_equal(resultado_item(pag, i),
+				       resultado_item(completo, offset + i));
+	}
+}
+
+static MunitResult test_pagina_igual_a_fatia_da_busca(const MunitParameter params[], void* data) {
+	(void) params; (void) data;
+
+	enum { N = 300 };
+	static int v[N];
+	for (int i = 0; i < N; i++) v[i] = (i * 7919) % N;  /* permutação */
+
+	ArvoreAfunilada* a = arvore_com(v, N);
+	Faixa f[] = { {0, N - 1}, {40, 199}, {250, 250}, {295, 400}, {-5, -1} };
+	int offs[] = { 0, 1, 37, 159, 400 };
+	int lims[] = { 0, 1, 10, 500 };
+
+	for (unsigned i = 0; i < sizeof f / sizeof *f; i++) {
+		for (unsigned j = 0; j < sizeof offs / sizeof *offs; j++) {
+			for (unsigned l = 0; l < sizeof lims / sizeof *lims; l++) {
+				Resultado* c = arvore_afunilada_buscar(a, cmp_faixa, &f[i]);
+				Resultado* p = arvore_afunilada_buscar_pagina(
+					a, cmp_faixa, &f[i], offs[j], lims[l]);
+				conferir_pagina(c, p, offs[j], lims[l]);
+				resultado_liberar(c);
+				resultado_liberar(p);
+			}
+		}
+	}
+	arvore_afunilada_liberar(a);
+	return MUNIT_OK;
+}
+
+static MunitResult test_pagina_sem_chave(const MunitParameter params[], void* data) {
+	(void) params; (void) data;
+
+	int v[] = { 5, 2, 8, 1, 9, 3 };
+	ArvoreAfunilada* a = arvore_com(v, 6);
+
+	Resultado* p = arvore_afunilada_buscar_pagina(a, NULL, NULL, 2, 3);
+	munit_assert_int(resultado_total(p), ==, 6);
+	munit_assert_int(resultado_tamanho(p), ==, 3);
+	munit_assert_int(valor(resultado_item(p, 0)), ==, 3);
+	munit_assert_int(valor(resultado_item(p, 2)), ==, 8);
+	resultado_liberar(p);
+	arvore_afunilada_liberar(a);
+	return MUNIT_OK;
+}
+
+static MunitResult test_pagina_nao_percorre_o_intervalo(const MunitParameter params[], void* data) {
+	(void) params; (void) data;
+
+	enum { N = 2000 };
+	static int v[N];
+	for (int i = 0; i < N; i++) v[i] = (i * 1237) % N;
+
+	ArvoreAfunilada* a = arvore_com(v, N);
+	Faixa tudo = { 0, N - 1 };
+	Resultado* c = arvore_afunilada_buscar(a, cmp_faixa, &tudo);
+	Resultado* p = arvore_afunilada_buscar_pagina(a, cmp_faixa, &tudo, 500, 20);
+
+	/* A busca completa compara cada item coletado; a página, não. */
+	munit_assert_long(resultado_comparacoes(c), >, N);
+	munit_assert_long(resultado_comparacoes(p), <, 200);
+	resultado_liberar(c);
+	resultado_liberar(p);
+	arvore_afunilada_liberar(a);
+	return MUNIT_OK;
+}
+
 /* ==============================
  * Suíte
  * ============================== */
@@ -604,6 +685,12 @@ static const MunitSuite suite_arvore_afunilada = {
 		  .test = test_arvore_degenerada_sem_recursao },
 		{ .name = "/operacoes-aleatorias-preservam-ordem",
 		  .test = test_operacoes_aleatorias_preservam_ordem },
+		{ .name = "/pagina-igual-a-fatia-da-busca",
+		  .test = test_pagina_igual_a_fatia_da_busca },
+		{ .name = "/pagina-sem-chave",
+		  .test = test_pagina_sem_chave },
+		{ .name = "/pagina-nao-percorre-o-intervalo",
+		  .test = test_pagina_nao_percorre_o_intervalo },
 		{ .name = NULL }
 	},
 	NULL, 1, MUNIT_SUITE_OPTION_NONE

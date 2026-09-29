@@ -1,5 +1,6 @@
 /**
  * json.c
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Implementação da serialização JSON.
  */
 #include <stdio.h>
@@ -13,6 +14,13 @@ struct json_buffer_t {
 	size_t cap;
 };
 
+/** Cria um buffer JSON vazio
+ *
+ * Parâmetros:
+ * size_t capacidade_inicial: bytes reservados (mínimo 64)
+ *
+ * Retorna JsonBuffer*: ponteiro para o buffer, ou NULL em erro
+ */
 JsonBuffer* json_buffer_criar(size_t capacidade_inicial) {
 	if (capacidade_inicial < 64) capacidade_inicial = 64;
 	JsonBuffer* jb = malloc(sizeof *jb);
@@ -29,6 +37,11 @@ JsonBuffer* json_buffer_criar(size_t capacidade_inicial) {
 	return jb;
 }
 
+/** Libera o buffer e o texto acumulado
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer a liberar (pode ser NULL)
+ */
 void json_buffer_liberar(JsonBuffer* jb) {
 	if (!jb) return;
 	free(jb->dados);
@@ -43,6 +56,12 @@ size_t json_buffer_tamanho(const JsonBuffer* jb) {
 	return jb ? jb->len : 0;
 }
 
+/** Garante espaço para mais `extra` bytes e o terminador
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer
+ * size_t extra: bytes que serão acrescentados
+ */
 static void jb_garantir_espaco(JsonBuffer* jb, size_t extra) {
 	if (jb->len + extra + 1 > jb->cap) {
 		size_t nova_cap = (jb->cap * 2 > jb->len + extra + 1)
@@ -56,6 +75,12 @@ static void jb_garantir_espaco(JsonBuffer* jb, size_t extra) {
 	}
 }
 
+/** Acrescenta um texto ao buffer, sem escapar
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer de destino
+ * const char* str: texto a acrescentar
+ */
 static void jb_adicionar_raw(JsonBuffer* jb, const char* str) {
 	size_t l = strlen(str);
 	jb_garantir_espaco(jb, l);
@@ -64,6 +89,12 @@ static void jb_adicionar_raw(JsonBuffer* jb, const char* str) {
 	jb->dados[jb->len] = '\0';
 }
 
+/** Acrescenta uma string JSON entre aspas, com escapes
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer de destino
+ * const char* str: texto a escrever (NULL vira "")
+ */
 static void jb_adicionar_escapado(JsonBuffer* jb, const char* str) {
 	if (!str) {
 		jb_adicionar_raw(jb, "\"\"");
@@ -89,6 +120,12 @@ static void jb_adicionar_escapado(JsonBuffer* jb, const char* str) {
 	jb_adicionar_raw(jb, "\"");
 }
 
+/** Serializa uma obra como objeto JSON
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer de destino
+ * const Obra* o: obra a serializar
+ */
 void json_serializar_obra(JsonBuffer* jb, const Obra* o) {
 	char buf[64];
 	jb_adicionar_raw(jb, "{");
@@ -133,6 +170,12 @@ static void jb_adicionar_str_ou_null(JsonBuffer* jb, const char* str) {
 	jb_adicionar_escapado(jb, str);
 }
 
+/** Serializa um gênero, com contagens e a obra de capa
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer de destino
+ * const Genero* g: gênero a serializar
+ */
 void json_serializar_genero(JsonBuffer* jb, const Genero* g) {
 	char buf[96];
 	jb_adicionar_raw(jb, "{\"nome\":");
@@ -144,6 +187,12 @@ void json_serializar_genero(JsonBuffer* jb, const Genero* g) {
 	jb_adicionar_raw(jb, "}");
 }
 
+/** Serializa um par (gênero, artista), com contagem e obra de capa
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer de destino
+ * const Artista* a: artista a serializar
+ */
 void json_serializar_artista(JsonBuffer* jb, const Artista* a) {
 	char buf[64];
 	jb_adicionar_raw(jb, "{\"genero\":");
@@ -216,11 +265,18 @@ static void serializar_cabecalho(JsonBuffer* jb, const Resultado* r,
 	         "\"tempo_ms\":%.6f,\"comparacoes\":%ld,\"rotacoes\":%ld,"
 	         "\"total_encontrados\":%d",
 	         resultado_tempo_ms(r), resultado_comparacoes(r),
-	         resultado_rotacoes(r), resultado_tamanho(r));
+	         resultado_rotacoes(r), resultado_total(r));
 	jb_adicionar_raw(jb, buf);
 	jb_adicionar_raw(jb, "},");
 }
 
+/** Serializa um resultado como lista, com as métricas da busca
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer de destino
+ * const Resultado* r: resultado da busca
+ * const JsonConsulta* c: consulta que o originou
+ */
 void json_serializar_resultado(JsonBuffer* jb, const Resultado* r,
                                const JsonConsulta* c) {
 	jb_adicionar_raw(jb, "{");
@@ -235,6 +291,16 @@ void json_serializar_resultado(JsonBuffer* jb, const Resultado* r,
 	jb_adicionar_raw(jb, "]}");
 }
 
+/** Serializa as métricas de uma busca junto com a vista da árvore
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer de destino
+ * const Resultado* r: resultado da busca, de onde saem as métricas
+ * const JsonConsulta* c: consulta que o originou
+ * const NoVista* vista: posições da vista, em layout de heap
+ * int niveis: níveis da vista (2^niveis - 1 posições)
+ * int total: itens do intervalo mostrado
+ */
 void json_serializar_vista(JsonBuffer* jb, const Resultado* r,
                            const JsonConsulta* c,
                            const NoVista* vista, int niveis, int total) {
@@ -262,6 +328,16 @@ void json_serializar_vista(JsonBuffer* jb, const Resultado* r,
 	jb_adicionar_raw(jb, "]}");
 }
 
+/** Serializa a mesma busca respondida por várias EDs
+ *
+ * Parâmetros:
+ * JsonBuffer* jb: buffer de destino
+ * const char* genero: gênero consultado
+ * const char* artista: artista consultado, ou NULL
+ * const char* consulta: rótulo da consulta
+ * const JsonComparacao* itens: uma linha por ED
+ * int n: número de linhas
+ */
 void json_serializar_comparativo(JsonBuffer* jb,
                                  const char* genero, const char* artista,
                                  const char* consulta,

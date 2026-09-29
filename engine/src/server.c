@@ -1,5 +1,6 @@
 /**
  * server.c
+ * Autores: Miguel Mochizuki Silva, Arthur Gomes e Leudo Neto
  * Descrição: Servidor HTTP com POSIX sockets e roteamento da API.
  *
  * Cada ED tem o seu Indice, com as três estruturas da navegação. Uma
@@ -93,6 +94,16 @@ static int extrair_param(const char* query, const char* chave, char* destino, si
 	return 0;
 }
 
+/** Envia uma resposta HTTP completa e fecha o envio
+ *
+ * Parâmetros:
+ * int sock_cliente: socket do cliente
+ * int status: código HTTP
+ * const char* status_msg: frase do status
+ * const char* content_type: tipo do corpo (charset utf-8 é acrescentado)
+ * const char* corpo: corpo da resposta, ou NULL
+ * size_t corpo_len: tamanho do corpo em bytes
+ */
 static void enviar_resposta(int sock_cliente, int status, const char* status_msg,
                             const char* content_type, const char* corpo, size_t corpo_len) {
 	char header[512];
@@ -112,6 +123,12 @@ static void enviar_resposta(int sock_cliente, int status, const char* status_msg
 	}
 }
 
+/** GET /api/status: estado da engine e tamanho do acervo
+ *
+ * Parâmetros:
+ * int sock: socket do cliente
+ * const ServerContext* ctx: contexto com o CSV e o catálogo
+ */
 static void handle_status(int sock, const ServerContext* ctx) {
 	char buf[256];
 	snprintf(buf, sizeof buf,
@@ -203,14 +220,19 @@ static Indice* indice_da_query(int sock, const ServerContext* ctx,
  * const Chave* foco: item acessado, ou NULL
  * const char* genero: gênero a ecoar na resposta, ou NULL
  * const char* artista: artista a ecoar na resposta, ou NULL
+ * int offset: itens do intervalo a pular (só com limite)
+ * int limite: tamanho da página, ou negativo para devolver o intervalo todo
  */
 static void responder_nivel(int sock, Indice* ix, Nivel nivel,
 			    const Chave* intervalo, const Chave* foco,
-			    const char* genero, const char* artista) {
+			    const char* genero, const char* artista,
+			    int offset, int limite) {
 	const Buscador* ed = indice_ed(ix);
 	const Chave* chave = foco ? foco : intervalo;
 
-	Resultado* r = indice_buscar(ix, nivel, chave);
+	Resultado* r = limite >= 0
+		? indice_buscar_pagina(ix, nivel, chave, offset, limite)
+		: indice_buscar(ix, nivel, chave);
 	if (!r) {
 		enviar_erro(sock, 500, "Internal Server Error",
 			    "Falha ao alocar o resultado.");
@@ -258,7 +280,7 @@ static void handle_generos(int sock, const ServerContext* ctx, const char* query
 	Chave k_foco = { foco, NULL, -1 };
 
 	responder_nivel(sock, ix, NIVEL_GENEROS, NULL,
-			tem_foco ? &k_foco : NULL, NULL, NULL);
+			tem_foco ? &k_foco : NULL, NULL, NULL, 0, -1);
 }
 
 /** Nível 2: GET /api/artistas?genero=<g>&ed=&foco=<artista> */
@@ -279,7 +301,7 @@ static void handle_artistas(int sock, const ServerContext* ctx, const char* quer
 	Chave k_foco    = { genero, foco, -1 };
 
 	responder_nivel(sock, ix, NIVEL_ARTISTAS, &intervalo,
-			tem_foco ? &k_foco : NULL, genero, NULL);
+			tem_foco ? &k_foco : NULL, genero, NULL, 0, -1);
 }
 
 /** Converte o texto do foco das obras num id
@@ -301,7 +323,27 @@ static int ler_id(const char* s, int* id_out) {
 	return 1;
 }
 
-/** Nível 3: GET /api/busca?genero=<g>&artista=<a>&ed=&foco=<id> */
+/** Lê um inteiro não negativo opcional da query
+ *
+ * Parâmetros:
+ * const char* query: query string da requisição
+ * const char* nome: nome do parâmetro
+ * int padrao: valor quando o parâmetro não veio
+ * int* saida: recebe o valor
+ *
+ * Retorna int: 1 se veio ausente ou válido, 0 se veio malformado
+ */
+static int int_opcional(const char* query, const char* nome, int padrao,
+			int* saida) {
+	char txt[16];
+	if (!param_preenchido(query, nome, txt, sizeof txt)) {
+		*saida = padrao;
+		return 1;
+	}
+	return ler_id(txt, saida);
+}
+
+/** Nível 3: GET /api/busca?genero=<g>&artista=<a>&ed=&foco=<id>&offset=&limite= */
 static void handle_busca(int sock, const ServerContext* ctx, const char* query) {
 	char genero[256]  = {0};
 	char artista[256] = {0};
@@ -326,6 +368,14 @@ static void handle_busca(int sock, const ServerContext* ctx, const char* query) 
 		return;
 	}
 
+	int offset, limite;
+	if (!int_opcional(query, "offset", 0, &offset) ||
+	    !int_opcional(query, "limite", -1, &limite)) {
+		enviar_erro(sock, 400, "Bad Request",
+			    "'offset' e 'limite' sao inteiros nao negativos.");
+		return;
+	}
+
 	Indice* ix = indice_da_query(sock, ctx, query);
 	if (!ix) return;
 
@@ -334,7 +384,7 @@ static void handle_busca(int sock, const ServerContext* ctx, const char* query) 
 	Chave k_foco    = { genero, a, id };
 
 	responder_nivel(sock, ix, NIVEL_OBRAS, &intervalo,
-			tem_foco ? &k_foco : NULL, genero, a);
+			tem_foco ? &k_foco : NULL, genero, a, offset, limite);
 }
 
 /** GET /api/comparar?genero=<g>&artista=<a>: a mesma busca de obras em todas as EDs */
@@ -407,6 +457,12 @@ static void registrar_url(const char* uri) {
 	fflush(stdout);
 }
 
+/** Lê uma requisição, registra a URL e a encaminha à rota certa
+ *
+ * Parâmetros:
+ * int sock: socket do cliente
+ * const ServerContext* ctx: contexto com os índices montados
+ */
 static void processar_requisicao(int sock, const ServerContext* ctx) {
 	char req_buf[BUFFER_REQ];
 	ssize_t lidos = read(sock, req_buf, sizeof(req_buf) - 1);
@@ -453,6 +509,14 @@ static void liberar_contexto(ServerContext* ctx) {
 	catalogo_liberar(ctx->catalogo);
 }
 
+/** Monta as EDs, abre o socket e atende requisições até ser interrompido
+ *
+ * Parâmetros:
+ * const Csv* csv: metadados carregados
+ * int porta: porta TCP onde escutar
+ *
+ * Retorna int: 1 se a montagem ou o socket falhar
+ */
 int server_iniciar(const Csv* csv, int porta) {
 	ServerContext ctx = { .csv = csv };
 
@@ -514,6 +578,7 @@ int server_iniciar(const Csv* csv, int porta) {
 	printf("  - GET /api/generos?ed=<ed>&foco=<genero>\n");
 	printf("  - GET /api/artistas?genero=<g>&ed=<ed>&foco=<artista>\n");
 	printf("  - GET /api/busca?genero=<g>&artista=<a>&ed=<ed>&foco=<id>\n");
+	printf("      \"offset\" e \"limite\" (opcionais) paginam as obras; total_encontrados e o intervalo todo\n");
 	printf("      \"foco\" e opcional: acessa um item e, na arvore, o leva a raiz\n");
 	printf("  - GET /api/comparar?genero=<g>&artista=<a>\n");
 	printf("Log de acesso: a URL de cada requisicao, uma por linha\n");

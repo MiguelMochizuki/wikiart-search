@@ -321,6 +321,44 @@ static MunitResult test_busca_binaria_conta_comparacoes(const MunitParameter par
 	return MUNIT_OK;
 }
 
+static MunitResult test_pagina_igual_a_fatia_da_busca(const MunitParameter params[], void* data) {
+	(void) params;
+	(void) data;
+
+	enum { N = 300 };
+	static int v[N];
+	for (int i = 0; i < N; i++) v[i] = (i * 7919) % 100;  /* com repetidos */
+
+	TabelaOrd* t = tabela_com(v, N);
+	Faixa f[] = { {0, 99}, {40, 60}, {50, 50}, {95, 200}, {-5, -1} };
+	int offs[] = { 0, 1, 37, 159, 400 };
+	int lims[] = { 0, 1, 10, 500 };
+
+	for (unsigned i = 0; i < sizeof f / sizeof *f; i++) {
+		Resultado* c = tabela_ord_buscar(t, cmp_faixa, &f[i]);
+		int k = resultado_tamanho(c);
+		for (unsigned j = 0; j < sizeof offs / sizeof *offs; j++) {
+			for (unsigned l = 0; l < sizeof lims / sizeof *lims; l++) {
+				Resultado* p = tabela_ord_buscar_pagina(
+					t, cmp_faixa, &f[i], offs[j], lims[l]);
+				int esperado = offs[j] >= k ? 0 : k - offs[j];
+				if (esperado > lims[l]) esperado = lims[l];
+				munit_assert_int(resultado_total(p), ==, k);
+				munit_assert_int(resultado_tamanho(p), ==, esperado);
+				for (int m = 0; m < esperado; m++) {
+					munit_assert_ptr_equal(
+						resultado_item(p, m),
+						resultado_item(c, offs[j] + m));
+				}
+				resultado_liberar(p);
+			}
+		}
+		resultado_liberar(c);
+	}
+	tabela_ord_liberar(t);
+	return MUNIT_OK;
+}
+
 /* ==============================
  * Suíte
  * ============================== */
@@ -360,6 +398,8 @@ static const MunitSuite suite_tabela_ord = {
 		  .test = test_buscar_sem_chave_lista_tudo },
 		{ .name = "/busca-binaria-conta-comparacoes",
 		  .test = test_busca_binaria_conta_comparacoes },
+		{ .name = "/pagina-igual-a-fatia-da-busca",
+		  .test = test_pagina_igual_a_fatia_da_busca },
 		{ .name = NULL }
 	},
 	NULL, 1, MUNIT_SUITE_OPTION_NONE

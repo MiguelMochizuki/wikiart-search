@@ -31,6 +31,13 @@ static Resultado* to_buscar(void* p, Comparador cmp, const void* chave) {
 	return tabela_ord_buscar((const TabelaOrd*) p, cmp, chave);
 }
 
+/** Busca uma página do intervalo da chave */
+static Resultado* to_pagina(void* p, Comparador cmp, const void* chave,
+			       int offset, int limite) {
+	return tabela_ord_buscar_pagina((const TabelaOrd*) p, cmp, chave,
+					 offset, limite);
+}
+
 /* ==============================
  * Instância pública
  * ============================== */
@@ -44,5 +51,6 @@ const Buscador BUSCADOR_TABELA_ORD = {
 	.liberar            = to_liberar,
 	.inserir            = to_inserir,
 	.buscar             = to_buscar,
+	.buscar_pagina      = to_pagina,
 	.vista              = NULL
 };
