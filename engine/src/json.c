@@ -359,7 +359,7 @@ void json_serializar_comparativo(JsonBuffer* jb,
 
 	jb_adicionar_raw(jb, "\"total_encontrados\":");
 	snprintf(buf, sizeof buf, "%d,",
-	         n > 0 ? resultado_tamanho(itens[0].resultado) : 0);
+	         n > 0 ? resultado_total(itens[0].resultado) : 0);
 	jb_adicionar_raw(jb, buf);
 
 	jb_adicionar_raw(jb, "\"comparativo\":[");

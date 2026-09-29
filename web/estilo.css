@@ -657,6 +657,75 @@ main {
 }
 
 /* ==============================
+ * Ajuda das métricas e comparação entre estruturas
+ * ============================== */
+
+.ajuda {
+  margin: -18px 0 30px;
+  border: 1px solid var(--linha);
+  background: var(--tela-1);
+  color: var(--cinza);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.ajuda summary {
+  cursor: pointer;
+  padding: 10px 16px;
+  font-family: var(--capitular);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ouro);
+}
+.ajuda dl { margin: 0; padding: 4px 16px 0; }
+.ajuda dt { margin-top: 10px; color: var(--osso); }
+.ajuda dd { margin: 2px 0 0; }
+.ajuda-pratica {
+  margin: 14px 0 0;
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--linha);
+}
+.ajuda-pratica strong { color: var(--ouro-claro); font-weight: 500; }
+
+.comparacao {
+  margin: 0 0 30px;
+  padding: 16px 18px 18px;
+  border: 1px solid var(--linha);
+  background: var(--tela-1);
+}
+.comparacao h3 {
+  margin: 0 0 6px;
+  font-family: var(--serifada);
+  font-weight: 400;
+  font-size: 20px;
+  color: var(--ouro-claro);
+}
+.comparacao-texto { margin: 0 0 12px; color: var(--cinza); font-size: 14px; line-height: 1.5; }
+.botao-comparar {
+  padding: 8px 16px;
+  border: 1px solid var(--ouro);
+  background: transparent;
+  color: var(--ouro-claro);
+  font: inherit;
+  cursor: pointer;
+}
+.botao-comparar:hover:not(:disabled) { background: var(--ouro-vel); }
+.botao-comparar:disabled { opacity: 0.5; cursor: progress; }
+.comparacao-saida { margin-top: 14px; color: var(--cinza); font-size: 14px; }
+.comparacao-tabela { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+.comparacao-tabela th, .comparacao-tabela td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--linha);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.comparacao-tabela th:first-child, .comparacao-tabela td:first-child { text-align: left; }
+.comparacao-tabela th { color: var(--ouro); font-weight: 400; }
+.comparacao-tabela td:first-child { color: var(--cinza); }
+.comparacao-frases { margin: 0; padding-left: 18px; line-height: 1.55; }
+.comparacao-frases li { margin-bottom: 4px; }
+
+/* ==============================
  * Grade de obras
  * ============================== */
 

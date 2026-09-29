@@ -413,7 +413,7 @@ static void handle_busca(int sock, const ServerContext* ctx, const char* query) 
 			tem_foco ? &k_foco : NULL, genero, a, offset, limite);
 }
 
-/** GET /api/comparar?genero=<g>&artista=<a>: a mesma busca de obras em todas as EDs */
+/** GET /api/comparar?genero=<g>&artista=<a>&offset=&limite=: a mesma busca de obras em todas as EDs */
 static void handle_comparar(int sock, const ServerContext* ctx, const char* query) {
 	char genero[256]  = {0};
 	char artista[256] = {0};
@@ -427,6 +427,14 @@ static void handle_comparar(int sock, const ServerContext* ctx, const char* quer
 		return;
 	}
 
+	int offset, limite;
+	if (!int_opcional(query, "offset", 0, &offset) ||
+	    !int_opcional(query, "limite", -1, &limite)) {
+		enviar_erro(sock, 400, "Bad Request",
+			    "'offset' e 'limite' sao inteiros nao negativos.");
+		return;
+	}
+
 	const char* consulta = tem_artista ? "genero+artista" : "genero";
 	Chave k = { genero, tem_artista ? artista : NULL, -1 };
 
@@ -435,7 +443,10 @@ static void handle_comparar(int sock, const ServerContext* ctx, const char* quer
 	int n = 0;
 
 	for (int i = 0; i < N_EDS; i++) {
-		Resultado* r = indice_buscar(ctx->indices[i], NIVEL_OBRAS, &k);
+		Resultado* r = limite >= 0
+			? indice_buscar_pagina(ctx->indices[i], NIVEL_OBRAS, &k,
+					       offset, limite)
+			: indice_buscar(ctx->indices[i], NIVEL_OBRAS, &k);
 		if (!r) continue;
 
 		linhas[n].estrutura = EDS[i]->nome;

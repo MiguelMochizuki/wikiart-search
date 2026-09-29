@@ -52,6 +52,19 @@ typedef struct catalogo_t Catalogo;
  */
 Catalogo* catalogo_montar(const Csv* csv);
 
+/** Como catalogo_montar, mas com os três níveis na ordem das chaves
+ *
+ * É a carga clássica, sem embaralhar: existe para o benchmark medir o
+ * que o embaralhamento evita. Numa árvore afunilada, essa ordem a
+ * transforma numa lista encadeada.
+ *
+ * Parâmetros:
+ * const Csv* csv: metadados carregados
+ *
+ * Retorna Catalogo*: catálogo alocado, ou NULL em erro
+ */
+Catalogo* catalogo_montar_ordenado(const Csv* csv);
+
 /** Libera o catálogo e seus itens. Não libera as obras do Csv.
  *
  * Parâmetros:

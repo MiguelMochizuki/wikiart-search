@@ -239,6 +239,34 @@ static MunitResult test_liberar_null(const MunitParameter params[], void* data) 
 	return MUNIT_OK;
 }
 
+static MunitResult test_montar_ordenado_segue_a_ordem_das_chaves(const MunitParameter params[], void* data) {
+	(void) params;
+	(void) data;
+
+	Csv* csv = carregar_texto(CSV_MISTO);
+	Catalogo* c = catalogo_montar_ordenado(csv);
+
+	/* Gêneros por nome, artistas por (gênero, artista), obras por
+	 * (gênero, artista, id): a carga clássica, sem embaralhar. */
+	munit_assert_int(catalogo_n_generos(c), ==, 3);
+	for (int i = 1; i < catalogo_n_generos(c); i++) {
+		munit_assert_int(strcmp(genero_nome(catalogo_genero(c, i - 1)),
+					genero_nome(catalogo_genero(c, i))), <, 0);
+	}
+	for (int i = 1; i < catalogo_n_obras(c); i++) {
+		const Obra* a = catalogo_obra(c, i - 1);
+		const Obra* b = catalogo_obra(c, i);
+		int cmp = strcmp(obra_genero(a), obra_genero(b));
+		if (cmp == 0) cmp = strcmp(obra_artista(a), obra_artista(b));
+		if (cmp == 0) cmp = obra_id(a) - obra_id(b);
+		munit_assert_int(cmp, <, 0);
+	}
+
+	catalogo_liberar(c);
+	csv_liberar(csv);
+	return MUNIT_OK;
+}
+
 /* ==============================
  * Suíte
  * ============================== */
@@ -267,6 +295,8 @@ static const MunitSuite suite_catalogo = {
 		{ .name = "/ordem-de-carga-e-permutacao",
 		  .test = test_ordem_de_carga_e_permutacao,
 		  .setup = setup, .tear_down = teardown },
+		{ .name = "/montar-ordenado-segue-a-ordem-das-chaves",
+		  .test = test_montar_ordenado_segue_a_ordem_das_chaves },
 		{ .name = "/indices-fora-do-intervalo",
 		  .test = test_indices_fora_do_intervalo,
 		  .setup = setup, .tear_down = teardown },

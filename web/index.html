@@ -53,6 +53,35 @@
     </div>
   </header>
 
+  <!-- Explicação das métricas, clonada sob cada painel de métricas -->
+  <template id="modelo-ajuda">
+    <details class="ajuda">
+      <summary>O que significam estes números?</summary>
+      <dl>
+        <dt>Estrutura</dt>
+        <dd>Como a engine guarda os dados e procura neles. A tabela é uma lista em
+            ordem; a árvore é uma hierarquia que se reorganiza a cada busca.</dd>
+        <dt>Tempo</dt>
+        <dd>Quanto a engine levou para responder. Não inclui a rede nem o
+            carregamento das imagens.</dd>
+        <dt>Comparações</dt>
+        <dd>Quantas vezes a engine comparou a sua busca com um item guardado. É a
+            medida de esforço que não depende da máquina.</dd>
+        <dt>Rotações</dt>
+        <dd>Só na árvore: quantas vezes ela trocou nós de lugar para levar ao topo
+            o que você abriu.</dd>
+      </dl>
+      <p class="ajuda-pratica">
+        <strong>Na prática:</strong> as duas respondem em microssegundos, então ao
+        navegar você não sente diferença de velocidade. A escolha muda a
+        <em>forma da tela</em> (lista em ordem ou hierarquia viva), o que acontece
+        com o <em>uso repetido</em> (a tabela custa o mesmo toda vez; a árvore
+        favorece o que foi aberto há pouco) e o que acontece <em>em escala</em>
+        (cadastrar itens novos desloca a tabela inteira; na árvore, só religa nós).
+      </p>
+    </details>
+  </template>
+
   <main id="palco">
     <!-- Nível 1: estilos -->
     <section id="tela-estilos" class="tela" data-ato="I">
@@ -97,6 +126,18 @@
       </div>
 
       <div class="metricas" id="metricas-obras" hidden></div>
+
+      <section class="comparacao" id="comparacao" aria-labelledby="comparacao-titulo">
+        <h3 id="comparacao-titulo">Comparar as duas estruturas nesta busca</h3>
+        <p class="comparacao-texto">
+          Faz esta mesma busca nas duas estruturas, duas vezes seguidas, e mostra
+          o esforço de cada uma. É o que a escolha no topo muda por baixo da tela.
+          A árvore lembra do que foi aberto: se este artista já foi visitado há
+          pouco, ela também responde barato na primeira rodada.
+        </p>
+        <button type="button" class="botao-comparar" id="botao-comparar">Comparar agora</button>
+        <div class="comparacao-saida" id="comparacao-saida" aria-live="polite"></div>
+      </section>
       <div class="grade-obras" id="grade-obras"></div>
       <div class="arvore" id="arvore-obras" data-nivel="obras" aria-label="Árvore de obras" hidden></div>
       <div class="sentinela" id="sentinela"></div>

@@ -136,10 +136,12 @@ static void embaralhar(const void** v, int n, uint32_t* estado) {
  *
  * Parâmetros:
  * const Csv* csv: metadados carregados
+ * int embaralhar_ordem: 1 para a ordem de carga embaralhada, 0 para a
+ *                       ordem das chaves
  *
  * Retorna Catalogo*: catálogo alocado, ou NULL em erro
  */
-Catalogo* catalogo_montar(const Csv* csv) {
+static Catalogo* montar(const Csv* csv, int embaralhar_ordem) {
 	Catalogo* c = calloc(1, sizeof *c);
 	if (!c) return NULL;
 
@@ -226,11 +228,35 @@ Catalogo* catalogo_montar(const Csv* csv) {
 		c->ordem_artistas[i] = &c->artistas[i];
 	}
 
-	uint32_t estado = SEMENTE_CARGA;
-	embaralhar(c->ordem_generos,  c->n_generos,  &estado);
-	embaralhar(c->ordem_artistas, c->n_artistas, &estado);
-	embaralhar(c->ordem_obras,    c->n_obras,    &estado);
+	if (embaralhar_ordem) {
+		uint32_t estado = SEMENTE_CARGA;
+		embaralhar(c->ordem_generos,  c->n_generos,  &estado);
+		embaralhar(c->ordem_artistas, c->n_artistas, &estado);
+		embaralhar(c->ordem_obras,    c->n_obras,    &estado);
+	}
 	return c;
+}
+
+/** Monta o catálogo com a ordem de carga embaralhada
+ *
+ * Parâmetros:
+ * const Csv* csv: metadados carregados
+ *
+ * Retorna Catalogo*: catálogo alocado, ou NULL em erro
+ */
+Catalogo* catalogo_montar(const Csv* csv) {
+	return montar(csv, 1);
+}
+
+/** Monta o catálogo com os níveis na ordem das chaves
+ *
+ * Parâmetros:
+ * const Csv* csv: metadados carregados
+ *
+ * Retorna Catalogo*: catálogo alocado, ou NULL em erro
+ */
+Catalogo* catalogo_montar_ordenado(const Csv* csv) {
+	return montar(csv, 0);
 }
 
 /** Libera o catálogo e seus itens. Não libera as obras do Csv.

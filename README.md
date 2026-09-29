@@ -54,32 +54,33 @@ Os algoritmos clássicos buscam uma chave exata. A aplicação precisa de blocos
 | Tamanho da subárvore em cada nó | árvore | As rotações mantêm `tam = 1 + tam(esq) + tam(dir)` nos dois nós que mudam de lugar, e a inserção o incrementa no caminho. Com ele, o total do intervalo e a posição do primeiro item de uma página saem em O(altura), sem percorrer o intervalo. |
 | Busca paginada `buscar_pagina(offset, limite)` | as duas | Devolve só uma fatia do intervalo. Na tabela, dois limites por busca binária dão o começo e o fim do intervalo. Na árvore, os tamanhos dão o nó de partida por seleção, e a coleta anda só `limite` sucessores, sem chamar o comparador por item. |
 | Afunilamento ascendente sem recursão | árvore | Ponteiros para o pai permitem afunilar, percorrer em ordem e liberar sem pilha, porque a árvore pode ficar tão funda quanto uma lista. |
-| Ordem de carga embaralhada | as duas | O CSV vem agrupado por artista e com ids crescentes. Carregado assim, cada bloco (gênero, artista) entraria em ordem crescente, e a árvore, que leva cada nó novo à raiz, viraria uma lista encadeada pela esquerda. A ordem é embaralhada com semente fixa, e as duas estruturas recebem a mesma. |
+| Ordem de carga embaralhada | as duas | O CSV vem agrupado por artista e com ids crescentes. Carregado assim, cada bloco (gênero, artista) entraria em ordem crescente, e a árvore, que leva cada nó novo à raiz, viraria uma lista encadeada pela esquerda. A ordem é embaralhada com semente fixa, e as duas estruturas recebem a mesma. É uma troca, não um ganho de desempenho: ver "Carga embaralhada contra carga na ordem das chaves". |
 | Vista restrita ao intervalo | árvore | Recorta os quatro primeiros níveis da árvore mostrando só os nós do intervalo, mantendo a hierarquia real entre eles, com o número de descendentes de cada nó calculado pelos tamanhos. |
 
 ## Resultados
 
-Benchmark sobre 80.042 obras, com 10.000 buscas por operação. Cada busca sorteia uma obra e usa a chave dela até o nível medido, então gêneros e artistas pesam na proporção do acervo, como numa navegação real. As duas estruturas respondem à mesma sequência de consultas. Dados brutos em [`assets/bench_80k.csv`](assets/bench_80k.csv).
+Benchmark sobre 80.042 obras, com 10.000 buscas por operação, em três cenários:
+
+- **Consultas aleatórias:** cada busca sorteia uma obra e usa a chave dela até o nível medido, então gêneros e artistas pesam na proporção do acervo, como numa navegação real.
+- **Consultas com localidade** (sufixo `_local`): uma sessão de navegação que se demora em poucas obras. 8 obras ficam em foco, 90% das consultas caem nelas, e o foco muda a cada 250 consultas.
+- **Carga clássica** (sufixo `_carga_ordenada`): a mesma estrutura carregada na ordem das chaves, sem o embaralhamento que o sistema usa.
+
+Todas as estruturas respondem exatamente à mesma sequência de consultas. Dados brutos em [`assets/bench_80k.csv`](assets/bench_80k.csv).
+
+### Consultas aleatórias
 
 | Estrutura | Operação | Tempo médio (µs) | Comparações médias | Rotações médias |
 |---|---|---|---|---|
 | tabela_ord | buscar_genero | **0,09** | **6,88** | 0 |
-| tabela_ord | buscar_artistas_genero | **1,22** | **147,55** | 0 |
-| tabela_ord | buscar_obras_artista | **4,47** | **268,91** | 0 |
-| tabela_ord | buscar_obras_pagina | **0,84** | **32,72** | 0 |
+| tabela_ord | buscar_artistas_genero | **1,21** | **147,44** | 0 |
+| tabela_ord | buscar_obras_artista (todas as obras) | **4,53** | **270,00** | 0 |
+| tabela_ord | buscar_obras_pagina (30 obras) | **0,84** | **32,72** | 0 |
+| tabela_ord | buscar_obras_pagina_qualquer (30 obras, posição sorteada) | **0,94** | **32,72** | 0 |
 | arvore_afunilada | buscar_genero | 0,15 | 7,77 | 3,24 |
-| arvore_afunilada | buscar_artistas_genero | 2,17 | 149,16 | 3,25 |
-| arvore_afunilada | buscar_obras_artista | 11,60 | 276,37 | 10,71 |
-| arvore_afunilada | buscar_obras_pagina | 2,07 | 50,02 | 10,55 |
-
-`buscar_obras_pagina` é a busca das obras de um artista pedindo só a primeira página de 30 obras, que é o que a interface faz.
-
-Custo de carga dos três níveis (27 + 2.082 + 80.042 itens):
-
-| Estrutura | Inserção (ms) |
-|---|---|
-| tabela_ord | 324,16 |
-| arvore_afunilada | **111,21** |
+| arvore_afunilada | buscar_artistas_genero | 2,17 | 149,44 | 3,25 |
+| arvore_afunilada | buscar_obras_artista (todas as obras) | 11,81 | 277,40 | 10,68 |
+| arvore_afunilada | buscar_obras_pagina (30 obras) | 2,12 | 50,32 | 10,50 |
+| arvore_afunilada | buscar_obras_pagina_qualquer (30 obras, posição sorteada) | 2,77 | 50,46 | 10,54 |
 
 | Comparações médias | Tempo médio |
 |---|---|
@@ -90,19 +91,70 @@ Custo de carga dos três níveis (27 + 2.082 + 80.042 itens):
 
 Uma linha por operação: gênero, artistas do gênero, obras do artista e primeira página de obras.
 
-### Análise
+**Busca de um gênero.** A tabela faz 6,88 comparações: busca binária sobre 27 itens (log₂ 27 ≈ 4,75) mais as duas da coleta. A árvore faz 7,77, e as 3,24 rotações dizem a profundidade média em que o gênero estava. Uma árvore perfeitamente balanceada de 27 nós tem profundidade média 3,04, e a afunilada chega perto disso sem balancear nada, porque as consultas são enviesadas: 38% delas caem em Impressionism, Realism e Romanticism, e a entropia da distribuição é 4,07 bits, contra os 4,75 de uma uniforme.
 
-**Busca de um gênero.** A tabela faz 6,88 comparações: busca binária sobre 27 itens (log₂ 27 ≈ 4,75) mais as duas da coleta. A árvore faz 7,77, e as 3,24 rotações dizem a profundidade média em que o gênero estava. Uma árvore perfeitamente balanceada de 27 nós tem profundidade média 3,04, e a afunilada chega perto disso sem balancear nada, porque as consultas são enviesadas: 38% delas caem em Impressionism, Realism e Romanticism, e a entropia da distribuição é 4,07 bits, contra os 4,75 de uma uniforme. O que é muito pedido fica perto do topo.
+**Busca dos artistas de um gênero.** Quase tudo é coleta: o gênero sorteado tem em média 135 artistas, e as duas estruturas pagam uma comparação por artista coletado (147,44 contra 149,44).
 
-**Busca dos artistas de um gênero.** 147,55 contra 149,16 comparações, quase tudo coleta: o gênero sorteado tem em média 135 artistas, e as duas pagam uma comparação por artista coletado. Chegar ao bloco custa cerca de 11 comparações na tabela e 13 na árvore.
+**Busca das obras de um artista.** As comparações quase empatam (270,00 contra 277,40), porque o bloco médio tem 251 obras e a coleta domina nas duas. O relógio não empata: 4,53 µs da tabela contra 11,81 µs da árvore, 2,6x. É localidade de memória. A tabela percorre um array contíguo, e a árvore salta entre 80 mil nós espalhados pelo heap, andando de sucessor em sucessor, e ainda faz 10,68 rotações por busca.
 
-**Busca das obras de um artista.** As comparações quase empatam (268,91 contra 276,37), porque o bloco médio tem 251 obras e a coleta domina nas duas. O relógio não empata: 4,47 µs da tabela contra 11,60 µs da árvore, 2,6x. É localidade de memória. A tabela percorre um array contíguo, e a árvore salta entre 80 mil nós espalhados pelo heap, andando de sucessor em sucessor pelos ponteiros, e ainda faz 10,71 rotações por busca.
+### Comparação com o algoritmo clássico
 
-**Busca paginada.** Pedir só 30 obras em vez das 251 do bloco médio elimina a coleta que pesa. Na árvore, o tempo cai de 11,60 para 2,07 µs (5,6x) e as comparações de 276 para 50. Na tabela, de 4,47 para 0,84 µs (5,3x) e de 269 para 33. A árvore continua 2,5x mais lenta que a tabela, porque a localidade de memória não muda. O preço é um `int` a mais por nó (de 32 para 40 bytes com o alinhamento).
+Cada modificação foi medida contra o comportamento que o algoritmo clássico teria.
 
-**Inserção.** Aqui a ordem se inverte. A árvore carrega os três níveis em 111 ms contra 324 ms da tabela, 2,9x mais rápida, e é a diferença entre O(log n) amortizado e O(n): com a carga embaralhada, cada inserção no meio do array desloca em média metade da cauda, enquanto a árvore só desce e religa ponteiros.
+#### Busca paginada contra coletar o intervalo inteiro
 
-**O balanço.** A tabela responde mais rápido nos três níveis, e a árvore constrói o índice 2,9x mais rápido e se adapta ao uso, o que a tabela não faz. Como o índice é montado uma vez na subida do servidor e consultado a cada navegação, a tabela é o padrão da interface. A árvore entra como a vista que mostra a estrutura trabalhando.
+O clássico devolve o intervalo todo (`buscar_obras_artista`, 251 obras em média); a versão modificada devolve só uma página. Pedir 30 obras faz a árvore cair de 11,81 para 2,12 µs (5,6x) e de 277 para 50 comparações, e a tabela de 4,53 para 0,84 µs (5,4x) e de 270 para 33. O ganho se mantém com a página em posição sorteada dentro do intervalo (`buscar_obras_pagina_qualquer`): 2,77 µs na árvore e 0,94 µs na tabela. Na árvore, isso só é possível porque cada nó guarda o tamanho da subárvore, o que dá o nó de partida da página por seleção em O(altura), sem percorrer os itens anteriores. O preço é um `int` a mais por nó (de 32 para 40 bytes com o alinhamento). A árvore continua 2,5x mais lenta que a tabela, porque a localidade de memória não muda.
+
+#### Carga embaralhada contra carga na ordem das chaves
+
+| Estrutura | Carga dos três níveis (ms) | Obras do artista: tempo (µs) | Rotações médias |
+|---|---|---|---|
+| tabela_ord, carga embaralhada | 230,94 | 4,53 | 0 |
+| tabela_ord, carga ordenada | **17,47** | 4,74 | 0 |
+| arvore_afunilada, carga embaralhada | 93,76 | 11,81 | 10,68 |
+| arvore_afunilada, carga ordenada | **2,92** | **6,97** | 25,78 |
+
+![Custo de carga, embaralhada e ordenada](assets/graficos/bench_80k_carga.png)
+
+O resultado é menos favorável ao embaralhamento do que se esperava, e vale dizer com clareza:
+
+- **A carga ordenada é muito mais barata nas duas estruturas** (32x na árvore, 13x na tabela). Na tabela, isso é o efeito descrito em aula: inserir sempre no fim não desloca nada, e o custo Θ(n²) só aparece quando a ordem de chegada é aleatória, que é o que o embaralhamento produz. A vantagem de 2,5x da árvore na inserção (94 ms contra 231 ms) existe só com a carga embaralhada; na ordenada, as duas cargam em milissegundos.
+- **A carga ordenada deixa a árvore mais rápida em regime**, apesar de a forma ser pior (25,78 rotações por busca contra 10,68): os nós ficam alocados em ordem de chave, e o percurso de sucessor em sucessor anda pela memória em sequência.
+- **O que o embaralhamento evita é o começo.** Carregada em ordem, a árvore é uma lista encadeada, e as primeiras buscas são caras até ela se reorganizar:
+
+| Buscas de obras do artista | Tempo médio, carga embaralhada | Tempo médio, carga ordenada | Rotações médias, carga ordenada |
+|---|---|---|---|
+| primeiras 10 | 0,016 ms | 0,406 ms | 9.559 |
+| primeiras 100 | 0,018 ms | 0,062 ms | 1.358 |
+| 10.000 | 0,012 ms | 0,007 ms | 25,78 |
+
+(`./wikiart_server data/metadados.csv --bench 10` e `--bench 100`.) São menos de meio milissegundo nas primeiras buscas, que ninguém percebe ao navegar. O embaralhamento troca 91 ms de carga na subida do servidor, e um pouco de desempenho em regime, por uma árvore que já começa equilibrada. É uma escolha defensável para latência previsível, mas não um ganho de desempenho.
+
+### Consultas com localidade
+
+![Consultas aleatórias e com localidade](assets/graficos/bench_80k_localidade.png)
+
+| Estrutura | Operação | Tempo aleatório (µs) | Tempo com localidade (µs) | Rotações aleatório → local |
+|---|---|---|---|---|
+| tabela_ord | buscar_genero | 0,09 | 0,06 | 0 |
+| tabela_ord | buscar_obras_artista | 4,53 | 3,02 | 0 |
+| tabela_ord | buscar_obras_pagina | 0,84 | 0,43 | 0 |
+| arvore_afunilada | buscar_genero | 0,15 | 0,10 | 3,24 → 2,01 |
+| arvore_afunilada | buscar_obras_artista | 11,81 | 5,75 | 10,68 → 3,47 |
+| arvore_afunilada | buscar_obras_pagina | 2,12 | 0,93 | 10,50 → 3,44 |
+
+A árvore se adapta como a teoria diz: com o foco estável, o que é mais consultado fica perto do topo, as rotações por busca caem a um terço (10,68 → 3,47) e a busca de obras fica 2,1x mais rápida (11,81 → 5,75 µs). Mas **a tabela também melhora** (4,53 → 3,02 µs), porque as mesmas poucas regiões do array ficam no cache do processador, e continua mais rápida que a árvore (1,9x nas obras do artista, 2,2x na página). As comparações da árvore quase não mudam nos níveis com muita coleta (149,44 → 150,21 nos artistas do gênero), porque coletar domina o esforço. Ou seja: a localidade ajuda a árvore, mas não a faz superar a tabela neste acervo.
+
+### Inserção
+
+Com a carga embaralhada, a árvore carrega os três níveis (27 + 2.082 + 80.042 itens) em 94 ms contra 231 ms da tabela, 2,5x mais rápida: é a diferença entre O(log n) amortizado e O(n), porque cada inserção no meio do array desloca em média metade da cauda, enquanto a árvore só desce e religa ponteiros.
+
+### O balanço
+
+- **Tempo de resposta:** a tabela vence em todos os cenários medidos (aleatório, com localidade, paginado), por um fator de 1,7x a 2,6x, sobretudo por localidade de memória.
+- **Adaptação:** só a árvore se reorganiza com o uso, e isso é medido (rotações 3x menores e busca 2,1x mais rápida com localidade), mas não basta para passar a tabela.
+- **Inserção com ordem de chegada aleatória:** a árvore vence (2,5x). Com chegada em ordem, as duas são baratas.
+- **Na interface:** como o índice é montado uma vez e consultado a cada navegação, a tabela é o padrão. A árvore entra como a vista que mostra a estrutura trabalhando.
 
 ## Interface web
 
@@ -113,6 +165,17 @@ A navegação é em três níveis: **estilo → artista → obras**. O seletor n
 
 As árvores guardam o estado entre requisições, e esse estado é do servidor, não do navegador: todos os clientes veem a mesma árvore, com o último acesso de qualquer um na raiz.
 
+### Entendendo as métricas e a escolha da estrutura
+
+Sob o painel de métricas de cada tela há o quadro **"O que significam estes números?"**, que explica em linguagem simples estrutura, tempo (sem rede nem imagens), comparações (o esforço que não depende da máquina) e rotações. Na tela de obras, o botão **"Comparar as duas estruturas nesta busca"** faz a mesma busca na tabela e na árvore, duas vezes seguidas, e mostra as comparações, as rotações e o tempo de cada uma, com frases que dizem o que aconteceu (por exemplo, se a segunda busca ficou mais barata na árvore porque o artista já estava no topo).
+
+O que a escolha da estrutura muda para quem navega, sem exagero:
+
+- **Velocidade percebida: nada.** As duas respondem em microssegundos, muito abaixo do tempo da rede e do carregamento das imagens.
+- **A forma da tela:** lista em ordem (tabela) ou hierarquia viva que se reorganiza a cada clique (árvore).
+- **O uso repetido:** a tabela custa o mesmo em toda busca, e a árvore leva o que foi aberto há pouco para perto do topo.
+- **A escala e a manutenção:** cadastrar itens novos desloca a tabela inteira, enquanto a árvore só religa nós; num acervo maior ou que cresce, isso pesa, e é o que o benchmark de inserção mostra.
+
 O tema é um claro-escuro de ateliê: fundo de noite, fios de ouro velho e numerais romanos marcando os três níveis. As fontes (Cinzel, Cormorant Garamond e Jost) vêm do Google Fonts, e sem rede a interface cai nas fontes do sistema. Quem usa `prefers-reduced-motion` não vê as animações.
 
 ### API
@@ -122,7 +185,7 @@ O tema é um claro-escuro de ateliê: fundo de noite, fios de ouro velho e numer
 | `GET /api/generos` | 1 | `ed`, `foco=<gênero>` |
 | `GET /api/artistas` | 2 | `genero` (obrigatório), `ed`, `foco=<artista>` |
 | `GET /api/busca` | 3 | `genero` (obrigatório), `artista`, `ed`, `foco=<id da obra>`, `offset` e `limite` |
-| `GET /api/comparar` | 3 | `genero`, `artista`: a mesma busca nas duas estruturas |
+| `GET /api/comparar` | 3 | `genero`, `artista`, `offset` e `limite`: a mesma busca nas duas estruturas |
 | `GET /api/status` | | |
 
 `ed` é `tabela_ord` (padrão) ou `arvore_afunilada`. Com `limite`, a resposta traz só a página, e `total_encontrados` é o tamanho do intervalo inteiro. `foco` acessa um item e, na árvore, o leva à raiz.
@@ -198,7 +261,7 @@ https://www.kaggle.com/api/v1/datasets/download/steubk/wikiart/<caminho>
 ```bash
 cd engine
 make
-make test              # 77 testes
+make test              # 78 testes
 make test-valgrind     # confere vazamentos
 ```
 

@@ -285,6 +285,7 @@ async function carregar(nivel, foco) {
 	/* Afunilar mantém a árvore na tela, esmaecida, até a nova forma chegar:
 	 * sumir com ela a cada clique faria a página pular. */
 	if (foco === undefined) {
+		if (nivel === 'obras') $('comparacao-saida').textContent = '';
 		$(cfg.metricas).hidden = true;
 		$(cfg.grade).textContent = '';
 		$(cfg.arvore).textContent = '';
@@ -384,6 +385,100 @@ function renderMetricas(caixa, dados) {
 		caixa.append(dl);
 	}
 	caixa.hidden = false;
+}
+
+/* ==============================
+ * Comparação entre as estruturas
+ * ============================== */
+
+/** Roda a busca de obras atual nas duas estruturas, duas vezes, e explica
+ *
+ * A segunda rodada mostra o que a árvore aprendeu com a primeira: o que foi
+ * aberto há pouco já está no topo. A tabela não muda entre as rodadas.
+ */
+async function compararEstruturas() {
+	const botao = $('botao-comparar');
+	const saida = $('comparacao-saida');
+	const selo = estado.selo;
+	botao.disabled = true;
+	saida.textContent = 'comparando…';
+
+	try {
+		const params = { genero: estado.genero, artista: estado.artista, limite: PAGINA };
+		const primeira = await consultar('comparar', params);
+		const segunda = await consultar('comparar', params);
+		if (selo !== estado.selo) return;
+		renderComparacao(saida, primeira, segunda);
+	} catch (err) {
+		if (selo === estado.selo) saida.textContent = `Falha ao comparar: ${err.message}.`;
+	} finally {
+		botao.disabled = false;
+	}
+}
+
+/** Desenha a tabela da comparação e as frases que a explicam
+ *
+ * Parâmetros:
+ * saida: elemento que recebe o resultado
+ * primeira, segunda: respostas de /api/comparar das duas rodadas
+ */
+function renderComparacao(saida, primeira, segunda) {
+	const de = (dados, nome) => dados.comparativo.find((c) => c.estrutura === nome);
+	const t1 = de(primeira, 'tabela_ord'), a1 = de(primeira, 'arvore_afunilada');
+	const t2 = de(segunda, 'tabela_ord'), a2 = de(segunda, 'arvore_afunilada');
+
+	const linhas = [
+		['Agora · comparações', t1.comparacoes, a1.comparacoes],
+		['Agora · rotações', '—', a1.rotacoes],
+		['Agora · tempo', formatarTempo(t1.tempo_ms), formatarTempo(a1.tempo_ms)],
+		['Logo em seguida · comparações', t2.comparacoes, a2.comparacoes],
+		['Logo em seguida · rotações', '—', a2.rotacoes],
+		['Logo em seguida · tempo', formatarTempo(t2.tempo_ms), formatarTempo(a2.tempo_ms)]
+	];
+
+	const tabela = document.createElement('table');
+	tabela.className = 'comparacao-tabela';
+	const cab = tabela.createTHead().insertRow();
+	for (const t of ['', NOMES_ED.tabela_ord, NOMES_ED.arvore_afunilada]) {
+		const th = document.createElement('th');
+		th.textContent = t;
+		cab.append(th);
+	}
+	const corpo = tabela.createTBody();
+	for (const [rotulo, t, a] of linhas) {
+		const tr = corpo.insertRow();
+		tr.insertCell().textContent = rotulo;
+		for (const v of [t, a]) tr.insertCell().textContent = typeof v === 'number' ? nf.format(v) : v;
+	}
+
+	const frases = [];
+	frases.push(`As duas estruturas devolveram as mesmas ${nf.format(primeira.total_encontrados)} obras` +
+		` (a tela pede ${PAGINA} por vez).`);
+	frases.push(`Para achar esta página, a tabela fez ${nf.format(t1.comparacoes)} comparações e ` +
+		`a árvore, ${nf.format(a1.comparacoes)}` + (a1.rotacoes > 0
+			? `, com ${nf.format(a1.rotacoes)} rotações para levar este artista ao topo.`
+			: ', sem rotações: um acesso anterior já tinha deixado este artista no topo.'));
+	if (a2.rotacoes < a1.rotacoes || a2.comparacoes < a1.comparacoes) {
+		frases.push(`Na segunda vez a árvore precisou de ${nf.format(a2.comparacoes)} comparações e ` +
+			`${nf.format(a2.rotacoes)} rotações: o que você abriu ficou no topo. ` +
+			`A tabela repetiu o mesmo esforço (${nf.format(t2.comparacoes)}).`);
+	} else {
+		frases.push('Repetir a busca não deixou a árvore mais barata: o artista já estava no topo.');
+	}
+	const lento = Math.max(t1.tempo_ms, a1.tempo_ms, t2.tempo_ms, a2.tempo_ms);
+	frases.push(lento < 1
+		? 'Em tempo, todas as respostas levaram menos de 1 ms: ao navegar você não sente essa diferença.'
+		: `A resposta mais lenta levou ${formatarTempo(lento)}.`);
+
+	saida.textContent = '';
+	const lista = document.createElement('ul');
+	lista.className = 'comparacao-frases';
+	for (const f of frases) {
+		const li = document.createElement('li');
+		li.textContent = f;
+		lista.append(li);
+	}
+	saida.append(tabela, lista);
 }
 
 /* ==============================
@@ -896,6 +991,13 @@ const observadorObras = new IntersectionObserver((entradas) => {
 function iniciar() {
 	semearPetalas();
 	restaurarEd();
+
+	/* Explicação das métricas sob cada painel */
+	const modelo = $('modelo-ajuda');
+	document.querySelectorAll('.metricas').forEach((caixa) => {
+		caixa.after(modelo.content.cloneNode(true));
+	});
+	$('botao-comparar').addEventListener('click', compararEstruturas);
 
 	$('filtro-estilos').addEventListener('input', renderEstilos);
 	$('filtro-artistas').addEventListener('input', renderArtistas);
