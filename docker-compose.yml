@@ -19,6 +19,9 @@ services:
       # Troque para data/metadados.csv depois de rodar preparar_dados.py
       WIKIART_CSV: ${WIKIART_CSV:-data/metadados_fake.csv}
       WIKIART_PORTA: "8080"
+      # Origens de navegador autorizadas (CORS), separadas por virgula. O
+      # padrao e a interface deste compose; outras origens recebem 403.
+      WIKIART_ORIGENS: ${WIKIART_ORIGENS:-http://localhost:${PORTA_WEB:-3000},http://127.0.0.1:${PORTA_WEB:-3000}}
     volumes:
       # Bind mount: permite trocar o dataset sem rebuildar a imagem
       - ./engine/data:/app/data:ro
@@ -33,7 +36,7 @@ services:
   # Interface web: estático puro (HTML/CSS/JS), sem build.
   # Fala com a engine pelo navegador do usuário, não pela rede do compose,
   # então a URL da API é localhost:PORTA_HOST — e é por isso que o servidor
-  # manda Access-Control-Allow-Origin: *.
+  # precisa liberar a origem desta interface via CORS (WIKIART_ORIGENS).
   web:
     image: nginx:1.27-alpine
     container_name: wikiart-web

@@ -127,6 +127,14 @@ O tema é um claro-escuro de ateliê: fundo de noite, fios de ouro velho e numer
 
 `ed` é `tabela_ord` (padrão) ou `arvore_afunilada`. Com `limite`, a resposta traz só a página, e `total_encontrados` é o tamanho do intervalo inteiro. `foco` acessa um item e, na árvore, o leva à raiz.
 
+### CORS
+
+A API só atende navegadores vindos de origens autorizadas, definidas em `WIKIART_ORIGENS` (lista separada por vírgulas; padrão: a interface do compose, `http://localhost:3000` e `http://127.0.0.1:3000`). Um pedido com `Origin` fora da lista recebe `403` antes de qualquer trabalho, e não altera a árvore compartilhada. Pedidos de origem autorizada recebem `Access-Control-Allow-Origin` com a própria origem, e o navegador bloqueia a leitura para as demais. Pedidos sem `Origin` (curl, healthcheck do Docker) seguem normalmente. Se a interface rodar em outra porta ou host, inclua essa origem:
+
+```bash
+WIKIART_ORIGENS=http://localhost:4000 docker compose up -d
+```
+
 ## Ferramentas
 
 | Parte | Ferramentas |

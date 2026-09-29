@@ -27,6 +27,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#include <strings.h>
+
 #include "server.h"
 #include "buscador.h"
 #include "catalogo.h"
@@ -34,6 +36,12 @@
 #include "json.h"
 
 #define BUFFER_REQ 8192
+
+/* Origens de navegador autorizadas a chamar a API, separadas por vírgula.
+ * Vem de WIKIART_ORIGENS; o padrão é a interface do compose. */
+#define ORIGENS_PADRAO "http://localhost:3000,http://127.0.0.1:3000"
+#define MAX_ORIGENS 1024
+#define MAX_ORIGEM 256
 
 /* Níveis da árvore que a vista manda para a interface: 1 + 2 + 4 + 8 nós. */
 #define NIVEIS_VISTA 4
@@ -44,6 +52,12 @@ static const Buscador* const EDS[] = {
 	&BUSCADOR_ARVORE_AFUNILADA
 };
 #define N_EDS ((int) (sizeof EDS / sizeof *EDS))
+
+/* Origens autorizadas (config lida na subida) e a origem da requisição em
+ * atendimento, para o enviar_resposta ecoar no CORS. O servidor atende uma
+ * requisição por vez, então um estado global basta. */
+static char origens_autorizadas[MAX_ORIGENS];
+static char origem_atual[MAX_ORIGEM];
 
 typedef struct {
 	const Csv* csv;
@@ -96,6 +110,10 @@ static int extrair_param(const char* query, const char* chave, char* destino, si
 
 /** Envia uma resposta HTTP completa e fecha o envio
  *
+ * Os cabeçalhos CORS só saem quando a requisição veio de uma origem
+ * autorizada, ecoando essa origem; sem eles o navegador bloqueia a
+ * leitura da resposta.
+ *
  * Parâmetros:
  * int sock_cliente: socket do cliente
  * int status: código HTTP
@@ -106,16 +124,24 @@ static int extrair_param(const char* query, const char* chave, char* destino, si
  */
 static void enviar_resposta(int sock_cliente, int status, const char* status_msg,
                             const char* content_type, const char* corpo, size_t corpo_len) {
-	char header[512];
+	char cors[MAX_ORIGEM + 200] = "";
+	if (origem_atual[0]) {
+		snprintf(cors, sizeof cors,
+		         "Access-Control-Allow-Origin: %s\r\n"
+		         "Vary: Origin\r\n"
+		         "Access-Control-Allow-Methods: GET, OPTIONS\r\n"
+		         "Access-Control-Allow-Headers: Content-Type\r\n",
+		         origem_atual);
+	}
+
+	char header[512 + sizeof cors];
 	int hlen = snprintf(header, sizeof header,
 	                    "HTTP/1.1 %d %s\r\n"
 	                    "Content-Type: %s; charset=utf-8\r\n"
 	                    "Content-Length: %zu\r\n"
-	                    "Access-Control-Allow-Origin: *\r\n"
-	                    "Access-Control-Allow-Methods: GET, OPTIONS\r\n"
-	                    "Access-Control-Allow-Headers: Content-Type\r\n"
+	                    "%s"
 	                    "Connection: close\r\n\r\n",
-	                    status, status_msg, content_type, corpo_len);
+	                    status, status_msg, content_type, corpo_len, cors);
 
 	write(sock_cliente, header, (size_t)hlen);
 	if (corpo && corpo_len > 0) {
@@ -457,6 +483,53 @@ static void registrar_url(const char* uri) {
 	fflush(stdout);
 }
 
+/** Lê o valor de um cabeçalho da requisição
+ *
+ * Parâmetros:
+ * const char* req: texto da requisição
+ * const char* nome: nome do cabeçalho, sem os dois pontos
+ * char* destino: buffer de saída
+ * size_t max: tamanho do buffer
+ *
+ * Retorna int: 1 se o cabeçalho veio e coube no buffer, 0 caso contrário
+ */
+static int ler_cabecalho(const char* req, const char* nome, char* destino,
+			 size_t max) {
+	size_t n = strlen(nome);
+	for (const char* p = strstr(req, "\r\n"); p; p = strstr(p + 2, "\r\n")) {
+		const char* linha = p + 2;
+		if (strncasecmp(linha, nome, n) != 0 || linha[n] != ':') continue;
+
+		const char* v = linha + n + 1;
+		while (*v == ' ' || *v == '\t') v++;
+		size_t len = strcspn(v, "\r\n");
+		if (len == 0 || len >= max) return 0;
+		memcpy(destino, v, len);
+		destino[len] = '\0';
+		return 1;
+	}
+	return 0;
+}
+
+/** Diz se uma origem está na lista de autorizadas
+ *
+ * Comparação exata com cada item da lista separada por vírgulas.
+ *
+ * Parâmetros:
+ * const char* origem: valor do cabeçalho Origin
+ *
+ * Retorna int: 1 se autorizada, 0 caso contrário
+ */
+static int origem_autorizada(const char* origem) {
+	size_t n = strlen(origem);
+	for (const char* p = origens_autorizadas; *p; ) {
+		size_t len = strcspn(p, ",");
+		if (len == n && strncmp(p, origem, n) == 0) return 1;
+		p += len + (p[len] == ',');
+	}
+	return 0;
+}
+
 /** Lê uma requisição, registra a URL e a encaminha à rota certa
  *
  * Parâmetros:
@@ -473,6 +546,20 @@ static void processar_requisicao(int sock, const ServerContext* ctx) {
 	if (sscanf(req_buf, "%15s %1023s", metodo, uri) < 2) return;
 
 	registrar_url(uri);
+
+	/* Navegador sempre manda Origin em pedido entre origens. Origem fora da
+	 * lista recebe 403 antes de qualquer trabalho (o GET simples não passa
+	 * por preflight e, na árvore, até alteraria o estado compartilhado), e
+	 * sem cabeçalhos CORS. Sem Origin (curl, healthcheck) o pedido segue. */
+	origem_atual[0] = '\0';
+	char origem[MAX_ORIGEM];
+	if (ler_cabecalho(req_buf, "Origin", origem, sizeof origem)) {
+		if (!origem_autorizada(origem)) {
+			enviar_erro(sock, 403, "Forbidden", "Origem nao autorizada.");
+			return;
+		}
+		snprintf(origem_atual, sizeof origem_atual, "%s", origem);
+	}
 
 	if (strcmp(metodo, "OPTIONS") == 0) {
 		enviar_resposta(sock, 204, "No Content", "text/plain", "", 0);
@@ -519,6 +606,10 @@ static void liberar_contexto(ServerContext* ctx) {
  */
 int server_iniciar(const Csv* csv, int porta) {
 	ServerContext ctx = { .csv = csv };
+
+	const char* origens = getenv("WIKIART_ORIGENS");
+	snprintf(origens_autorizadas, sizeof origens_autorizadas, "%s",
+	         origens && origens[0] ? origens : ORIGENS_PADRAO);
 
 	printf("Populando estruturas na memoria para o servidor...\n");
 	Catalogo* catalogo = catalogo_montar(csv);
@@ -581,6 +672,7 @@ int server_iniciar(const Csv* csv, int porta) {
 	printf("      \"offset\" e \"limite\" (opcionais) paginam as obras; total_encontrados e o intervalo todo\n");
 	printf("      \"foco\" e opcional: acessa um item e, na arvore, o leva a raiz\n");
 	printf("  - GET /api/comparar?genero=<g>&artista=<a>\n");
+	printf("Origens autorizadas (CORS): %s\n", origens_autorizadas);
 	printf("Log de acesso: a URL de cada requisicao, uma por linha\n");
 	printf("======================================================\n\n");
 
