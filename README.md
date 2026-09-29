@@ -213,7 +213,7 @@ cd engine
 
 ## Processo de desenvolvimento
 
-O projeto foi planejado pelos autores: a escolha das duas estruturas, a navegação em três níveis, as modificações nos algoritmos e o desenho do benchmark saíram de discussões do grupo. A implementação em C das estruturas de dados (`TabelaOrd`, `ArvoreAfunilada` e o restante da engine) foi escrita e documentada manualmente pelos autores. Ferramentas de IA auxiliaram apenas na configuração do projeto Python, isto é, no `pyproject.toml` e no ambiente do `uv`.
+O projeto foi planejado pelos autores: a escolha das duas estruturas, a navegação em três níveis, as modificações nos algoritmos e o desenho do benchmark saíram de discussões do grupo. A implementação em C das estruturas de dados (`TabelaOrd`, `ArvoreAfunilada` e o restante da engine) foi escrita e documentada manualmente pelos autores. Ferramentas de IA auxiliaram apenas na configuração do projeto Python, isto é, no `pyproject.toml` e no ambiente do `uv`, e na infraestrutura de empacotamento, como o Docker (`Dockerfile` e `docker-compose.yml`).
 
 ## Autores
 
