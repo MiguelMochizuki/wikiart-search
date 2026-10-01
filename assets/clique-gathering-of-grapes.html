@@ -1,0 +1,618 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clique em Gathering of Grapes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Jost:wght@300;400;500&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+/* Layout: uma coluna de leitura; a árvore ocupa a largura toda, cada nó numa coluna fixa (sua posição na ordem da chave) */
+:root {
+  --noite: #0b0a0d;
+  --tela: #141218;
+  --tela-2: #1c1921;
+  --linha: #2d2933;
+  --osso: #ece4d6;
+  --cinza: #9a9187;
+  --cinza-fraco: #6b6560;
+  --ouro: #c8a856;
+  --ouro-vel: rgba(200, 168, 86, 0.16);
+  --antes: #86d5cd;
+  --depois: #b9a3dc;
+  --recolhida: #4c4653;
+  --display: "Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+  --texto: "Jost", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--noite); }
+body {
+  color: var(--osso);
+  font: 300 15px/1.6 var(--texto);
+  padding-inline: 16px;
+  padding-block: 32px 64px;
+}
+.pagina { max-width: 1240px; margin: 0 auto; display: grid; gap: 28px; }
+.leitura { max-width: 68ch; }
+.rota {
+  font: 400 12px/1.5 var(--mono); color: var(--cinza);
+  overflow-wrap: anywhere;
+}
+.rota b { color: var(--ouro); font-weight: 400; }
+h1 {
+  font: 400 clamp(32px, 5vw, 50px)/1.05 var(--display);
+  margin: 6px 0 12px; text-wrap: balance; letter-spacing: 0.005em;
+}
+h1 em { color: var(--ouro); font-style: italic; }
+h2 { font: 600 24px/1.2 var(--display); margin: 0 0 6px; text-wrap: balance; }
+p { margin: 0 0 10px; }
+.legenda { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 13px; color: var(--cinza); }
+.legenda span { display: inline-flex; align-items: center; gap: 8px; }
+.ponto { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.tri { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid var(--recolhida); display: inline-block; }
+
+/* Controles */
+.controles {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: color-mix(in srgb, var(--noite) 92%, transparent);
+  backdrop-filter: blur(6px);
+  border-block: 1px solid var(--linha);
+  padding: 10px 0;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+}
+button {
+  font: 400 13px var(--texto); color: var(--osso);
+  background: var(--tela-2); border: 1px solid var(--linha); border-radius: 2px;
+  padding: 7px 14px; cursor: pointer; min-width: 44px;
+}
+button:hover { border-color: var(--ouro); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--ouro); outline-offset: 2px; }
+button:disabled { opacity: 0.4; cursor: default; border-color: var(--linha); }
+input[type=range] { flex: 1 1 220px; accent-color: var(--ouro); min-width: 0; }
+.contador { font: 400 12px var(--mono); color: var(--cinza); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fases { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.fase {
+  font-size: 12px; padding: 4px 10px; border-radius: 2px; background: transparent;
+  color: var(--cinza); border: 1px solid var(--linha);
+}
+.fase[aria-current="true"] { color: var(--noite); background: var(--ouro); border-color: var(--ouro); }
+
+/* Passo atual */
+.passo { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 820px) { .passo { grid-template-columns: minmax(0, 1fr); } }
+.passo h2 .num { font: 400 13px var(--mono); color: var(--ouro); display: block; margin-bottom: 4px; letter-spacing: 0.04em; }
+.passo p { color: #d9d1c3; }
+.medidas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--linha); border: 1px solid var(--linha); }
+.medidas div { background: var(--tela); padding: 10px 12px; min-width: 0; }
+.medidas dt { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cinza); }
+.medidas dd { margin: 2px 0 0; font: 400 20px var(--display); font-variant-numeric: tabular-nums; }
+.medidas dd small { font: 300 12px var(--texto); color: var(--cinza); }
+.composicao { grid-column: 1 / -1; }
+.barra { display: flex; height: 8px; margin-top: 8px; background: var(--tela-2); }
+.barra i { display: block; height: 100%; }
+.traco { margin: 12px 0 0; padding: 0; list-style: none; font: 400 12px/1.7 var(--mono); color: var(--cinza); max-height: 260px; overflow: auto; border-top: 1px solid var(--linha); padding-top: 8px; }
+.traco li { display: flex; gap: 8px; }
+.traco .q { flex: none; width: 10px; height: 10px; border-radius: 50%; margin-top: 6px; }
+.traco .acao { color: var(--osso); }
+
+/* Árvore */
+figure { margin: 0; }
+.quadro { background: var(--tela); border: 1px solid var(--linha); overflow-x: auto; }
+svg { display: block; }
+#arvore { width: 100%; min-width: 1040px; height: auto; }
+figcaption { font-size: 13px; color: var(--cinza); margin-top: 8px; max-width: 90ch; }
+.aresta { stroke: var(--linha); stroke-width: 1.2; }
+.aresta.viva { stroke: var(--ouro); stroke-width: 2; }
+.aresta-rec { stroke: var(--recolhida); stroke-width: 1; stroke-dasharray: 2 2; }
+.no { stroke: var(--tela); stroke-width: 1.5; }
+.no.apagado { opacity: 0.35; }
+.anel { fill: none; stroke: var(--osso); stroke-width: 1.4; }
+.anel-x { fill: none; stroke: var(--ouro); stroke-width: 1.2; stroke-dasharray: 2 2; }
+.rotulo { font: 400 10.5px var(--texto); fill: var(--osso); paint-order: stroke; stroke: var(--tela); stroke-width: 3px; stroke-linejoin: round; }
+.rotulo.fraco { fill: var(--cinza); }
+.rec { fill: var(--recolhida); }
+.rec-t { font: 400 9px var(--mono); fill: var(--cinza-fraco); }
+.eixo { stroke: var(--cinza-fraco); stroke-width: 1; }
+.eixo-t { font: 400 11px var(--texto); fill: var(--cinza); }
+.eixo-t.ouro { fill: var(--ouro); }
+.guia { stroke: var(--osso); stroke-opacity: 0.18; stroke-dasharray: 1 3; }
+.alvo { fill: transparent; cursor: pointer; }
+#dica {
+  position: fixed; z-index: 10; pointer-events: none; max-width: 300px;
+  background: var(--tela-2); border: 1px solid var(--linha); padding: 8px 10px; font-size: 12px; line-height: 1.5;
+}
+#dica b { font-weight: 500; }
+#dica .m { font-family: var(--mono); color: var(--cinza); font-size: 11px; }
+
+/* Vista */
+.vista-grade { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 820px) { .vista-grade { grid-template-columns: minmax(0, 1fr); } }
+#vista { width: 100%; min-width: 560px; height: auto; }
+.v-no { fill: var(--ouro); }
+.v-vazio { fill: none; stroke: var(--cinza-fraco); stroke-dasharray: 3 3; }
+.v-id { font: 400 10.5px var(--mono); fill: var(--osso); text-anchor: middle; }
+.v-d { font: 500 10px var(--mono); fill: var(--noite); text-anchor: middle; }
+.v-liga { stroke: var(--cinza); stroke-width: 1.2; }
+.v-liga.oculta { stroke: var(--depois); stroke-dasharray: 5 4; stroke-width: 1.6; }
+.v-chip { fill: var(--noite); stroke: var(--depois); }
+.v-chip-t { font: 400 10px var(--texto); fill: var(--depois); text-anchor: middle; }
+pre {
+  margin: 10px 0 0; padding: 12px; background: var(--tela); border: 1px solid var(--linha);
+  font: 400 12px/1.6 var(--mono); color: #d9d1c3; overflow-x: auto;
+}
+.ocultos { font-size: 13px; color: var(--cinza); }
+.ocultos b { color: var(--osso); font-weight: 400; }
+.nota { font-size: 13px; color: var(--cinza); border-top: 1px solid var(--linha); padding-top: 16px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.anel-leg { background: var(--ouro); outline: 1.5px dashed var(--osso); outline-offset: 3px; }
+.anel-x { stroke: var(--osso) !important; }
+.duas-vistas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 980px) { .duas-vistas { grid-template-columns: minmax(0, 1fr); } }
+.vista { width: 100%; min-width: 520px; height: auto; }
+.v-foco { fill: none; stroke: var(--osso); stroke-width: 1.5; stroke-dasharray: 3 2; }
+</style>
+</head>
+<body>
+
+<main class="pagina">
+  <header class="leitura">
+    <div class="rota">GET /api/busca?genero=Post+Impressionism&amp;artista=martiros+saryan&amp;<b>foco=40598</b>&amp;limite=30&amp;ed=arvore_afunilada</div>
+    <h1>O clique em <em>Gathering of Grapes</em></h1>
+    <p>Este é o próximo passo depois da primeira busca. A árvore já tem Saryan #40609 na raiz, e a interface mostra a vista dela. A obra #40598 (<i>gathering-of-grapes-1933</i>) aparece na posição 4, só dois níveis abaixo da raiz. Clicar num nó que não é a raiz chama <code>carregar('obras', id)</code>, e o front envia <code>foco=40598</code>.</p>
+    <p>No servidor, a busca passa a usar a chave completa <code>(Post Impressionism, martiros saryan, 40598)</code>, que só uma obra satisfaz. É essa obra que sobe até a raiz. A vista que volta para a tela continua sendo a do intervalo inteiro das 45 obras, agora com a #40598 no topo.</p>
+  </header>
+
+  <div class="legenda" aria-label="Legenda">
+    <span><i class="ponto" style="background:var(--ouro)"></i>obra de Saryan em Post Impressionism</span>
+    <span><i class="ponto" style="background:var(--antes)"></i>vem antes do bloco de Saryan</span>
+    <span><i class="ponto" style="background:var(--depois)"></i>vem depois do bloco de Saryan</span>
+    <span><i class="ponto anel-leg"></i>a obra clicada, #40598</span>
+    <span><i class="tri"></i>subárvore recolhida (nenhuma obra de Saryan lá dentro)</span>
+  </div>
+
+  <div class="controles" role="group" aria-label="Passos">
+    <button id="ant" type="button" aria-label="Passo anterior">←</button>
+    <button id="tocar" type="button">Reproduzir</button>
+    <button id="prox" type="button" aria-label="Próximo passo">→</button>
+    <input id="passo" type="range" min="0" max="0" value="0" aria-label="Passo">
+    <span class="contador" id="contador"></span>
+    <div class="fases" id="fases"></div>
+  </div>
+
+  <section class="passo" aria-live="polite">
+    <div>
+      <h2 id="p-titulo"></h2>
+      <div id="p-texto"></div>
+      <ul class="traco" id="traco" hidden></ul>
+    </div>
+    <dl class="medidas" id="medidas"></dl>
+  </section>
+
+  <figure>
+    <div class="quadro">
+      <svg id="arvore" role="img" aria-label="Forma real da árvore de obras enquanto a obra 40598 é afunilada até a raiz"></svg>
+    </div>
+    <figcaption>São 61 nós desenhados: as 45 obras de Saryan, os nós que algum passo visita e os ancestrais deles. As demais 79.981 obras aparecem como triângulos, cada um uma subárvore inteira sem nenhuma obra de Saryan. Os traços na base são a ordem em-ordem desses nós. Passe o cursor sobre um nó ou triângulo para ver os detalhes.</figcaption>
+  </figure>
+
+  <section>
+    <h2>A vista na tela, antes e depois do clique</h2>
+    <div class="duas-vistas">
+      <figure>
+        <div class="quadro"><svg id="vista-antes" class="vista" role="img" aria-label="Vista antes do clique: raiz 40609, obra 40598 na posição 4"></svg></div>
+        <figcaption><b>Antes</b>: a raiz é a #40609. A #40598 está na posição 4.</figcaption>
+      </figure>
+      <figure>
+        <div class="quadro"><svg id="vista-depois" class="vista" role="img" aria-label="Vista depois do clique: raiz 40598, antiga raiz 40609 na posição 2"></svg></div>
+        <figcaption><b>Depois</b>: a #40598 está na raiz e a antiga raiz #40609 desceu para a posição 2.</figcaption>
+      </figure>
+    </div>
+    <div class="leitura" style="margin-top:16px">
+      <p>As ligações tracejadas parecem diretas na tela, mas no caminho real passam por nós de outros artistas. Antes do clique, as duas ligações saindo da raiz escondiam 7 nós cada. O zig-zig dobrou a cadeia do lado esquerdo: 4 desses nós continuam entre obras de Saryan, agora divididos em ligações menores, e 3 saíram desse caminho. O lado direito não foi tocado.</p>
+      <div class="ocultos" id="ocultos"></div>
+    </div>
+  </section>
+
+  <p class="nota leitura">Dados reais: o <code>metadados.csv</code> carregado pela engine com a semente fixa de embaralhamento, depois a busca <code>genero=Post+Impressionism&amp;artista=martiros+saryan&amp;limite=30</code> e então este clique. O programa de depuração usa as mesmas funções da engine (<code>rotacionar</code>, <code>contar_intervalo</code>, <code>arvore_afunilada_vista</code>) e grava o estado da árvore depois de cada rotação.</p>
+</main>
+<div id="dica" hidden></div>
+
+<script type="application/json" id="dados">{"vistaAntes":[{"id":40609,"d":44},{"id":40591,"d":38},{"id":74172,"d":4},{"id":40585,"d":20},{"id":40598,"d":16},{"id":74171,"d":3},null,{"id":40571,"d":14},{"id":40586,"d":4},{"id":40594,"d":5},{"id":40605,"d":9},{"id":74170,"d":2},null,null,null],"totalBusca":1,"n":80042,"x":40598,"total":45,"comp":13,"posto":50793,"menor":40598,"nodes":[{"id":8948,"c":-1,"g":"Baroque","a":"yov kondzelevych","t":"icon-of-the-mother-of-god-from-the-bilostok-monastery-iconostasis"},{"id":32579,"c":-1,"g":"Minimalism","a":"robert mangold","t":"plane-figure-series-d-double-panel-1993"},{"id":73727,"c":-1,"g":"Post Impressionism","a":"augustus john","t":"girl-leaning-on-a-stick-1910"},{"id":38981,"c":-1,"g":"Post Impressionism","a":"david burliuk","t":"bouquet-with-sunflowers-with-landscape"},{"id":73989,"c":-1,"g":"Post Impressionism","a":"henri de toulouse lautrec","t":"maxime-dethomas-at-the-ball-of-the-opera-1896"},{"id":40516,"c":-1,"g":"Post Impressionism","a":"le pho","t":"les-pommeirs-du-japon"},{"id":40567,"c":-1,"g":"Post Impressionism","a":"marsden hartley","t":"red-tree-1910"},{"id":40568,"c":-1,"g":"Post Impressionism","a":"marsden hartley","t":"smelt-brook-falls"},{"id":74167,"c":-1,"g":"Post Impressionism","a":"marsden hartley","t":"valley-road-1920"},{"id":40570,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"anticipation-of-the-fall"},{"id":40571,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"aragats-and-mount-ara-1922"},{"id":40572,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"ararat-from-dvin-1952"},{"id":40573,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"ararat-in-clouds-1923"},{"id":40574,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"ararat-valley-1952"},{"id":40575,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"armenia-spring-in-norke-1947"},{"id":40576,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"armenian-from-nakhichevan-1904"},{"id":40577,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"ashtarak-1956"},{"id":40578,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"ashtarak-1957"},{"id":40579,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"ashtarak-in-hazy-day-1954"},{"id":40580,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"autumn-landscape-1963"},{"id":40581,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"autumn-still-life-1961"},{"id":40582,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"balcony-on-the-estate-of-marshal-ivan-bagramian-1947"},{"id":40583,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"banks-of-the-river-zangu-near-yerevan-1930"},{"id":40584,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"bjni-fort-1946"},{"id":40585,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"blossoming-garden-1907"},{"id":40586,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"blossoming-tree-1907"},{"id":40587,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"bouquet-of-flowers-1945"},{"id":40588,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"bouquet-of-flowers-1946"},{"id":40589,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"bright-flowers-1942"},{"id":40590,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"eastern-landscape-1924"},{"id":40591,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"evening-in-the-garden-1903"},{"id":40592,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"flowers-1908"},{"id":40593,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"flowers-1912"},{"id":40594,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"flowers-1913"},{"id":40595,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"flowers-1929"},{"id":40596,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"flowers-a-nook-of-the-garden-1940"},{"id":40597,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"fruits-and-vegetables-1933"},{"id":40598,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"gathering-of-grapes-1933"},{"id":40599,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"in-armenian-village-1901"},{"id":40600,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"in-barfursh-persia-1913"},{"id":40601,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"landscape"},{"id":40602,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"old-yerevan-1944"},{"id":40603,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"on-marna-1927"},{"id":40604,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"on-marna-yerevan-1927"},{"id":40605,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"persian-house-1913"},{"id":40606,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"still-life-with-jug-and-fruit-1913"},{"id":40607,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"vase-1913"},{"id":40608,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"wildflowers-1910"},{"id":40609,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"wistaria-1923"},{"id":74168,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"eastern-tale-1903"},{"id":74169,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"female-portrait-1952"},{"id":74170,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"flowers-1967"},{"id":74171,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"hrazdan-river-1903"},{"id":74172,"c":0,"g":"Post Impressionism","a":"martiros saryan","t":"surb-sarkis-st-sarkis-church-in-yerevan-1912"},{"id":40613,"c":1,"g":"Post Impressionism","a":"mary fedden","t":"cat-1981"},{"id":74173,"c":1,"g":"Post Impressionism","a":"mary fedden","t":"blue-2006"},{"id":40652,"c":1,"g":"Post Impressionism","a":"maurice de vlaminck","t":"view-of-a-village-with-red-roofs"},{"id":74186,"c":1,"g":"Post Impressionism","a":"maurice denis","t":"maternite-anne-marie-et-marthe-a-la-bague-ovale"},{"id":74562,"c":1,"g":"Post Impressionism","a":"pyotr konchalovsky","t":"novgorod-kukui-tower-1928"},{"id":43907,"c":1,"g":"Realism","a":"alexey venetsianov","t":"head-of-an-old-peasant"},{"id":50518,"c":1,"g":"Realism","a":"vasily sadovnikov","t":"interior-of-trinitarian-church-in-vilnius-lithuania-1846"}],"path":[[40609,1],[8948,-1],[32579,-1],[73727,-1],[38981,-1],[73989,-1],[40516,-1],[40567,-1],[40591,-1],[40598,0]],"rots":[{"node":40591,"parent":40567,"kind":"zig-zig","part":1,"parts":2},{"node":40598,"parent":40591,"kind":"zig-zig","part":2,"parts":2},{"node":40516,"parent":73989,"kind":"zig-zig","part":1,"parts":2},{"node":40598,"parent":40516,"kind":"zig-zig","part":2,"parts":2},{"node":38981,"parent":73727,"kind":"zig-zig","part":1,"parts":2},{"node":40598,"parent":38981,"kind":"zig-zig","part":2,"parts":2},{"node":32579,"parent":8948,"kind":"zig-zig","part":1,"parts":2},{"node":40598,"parent":32579,"kind":"zig-zig","part":2,"parts":2},{"node":40598,"parent":40609,"kind":"zig","part":1,"parts":1}],"walk":[[32579,-1,0,1],[38981,-1,0,1],[40516,-1,0,1],[40591,-1,0,1],[40594,-1,0,1],[40596,-1,0,1],[40597,-1,0,1],[40609,1,0,1],[40605,1,0,1],[40604,1,0,1],[40603,1,0,1],[40600,1,0,1],[40599,1,0,1]],"menorPath":[32579,38981,40516,40591,40594,40596,40597],"page":[40598],"vista":[{"id":40598,"d":44,"hid":[]},{"id":40591,"d":27,"hid":[40516,38981,32579]},{"id":40609,"d":15,"hid":[]},{"id":40585,"d":20,"hid":[40567]},{"id":40594,"d":5,"hid":[]},{"id":40605,"d":9,"hid":[]},{"id":74172,"d":4,"hid":[40613,74173,40652,74186,74562,43907,50518]},{"id":40571,"d":14,"hid":[]},{"id":40586,"d":4,"hid":[]},{"id":40593,"d":1,"hid":[]},{"id":40596,"d":2,"hid":[]},{"id":40604,"d":5,"hid":[]},{"id":40606,"d":2,"hid":[]},{"id":74171,"d":3,"hid":[]},null],"snaps":[{"root":40609,"xd":9,"xt":17,"xa":0,"xin":17,"xdp":0,"frag":0,"k":{"8948":[-1,32579,11190,0,50804,-1,0],"32579":[-1,73727,29579,0,39613,-1,0],"73727":[-1,38981,7809,0,10033,-1,0],"38981":[-1,73989,196,0,2223,-1,0],"73989":[-1,40516,1220,0,2026,-1,0],"40516":[-1,40567,689,0,805,-1,0],"40567":[-1,40591,70,0,115,-1,0],"40568":[-1,74167,0,0,6,0,0],"74167":[-1,40570,3,0,5,-1,0],"40570":[-1,-1,0,0,1,0,0],"40571":[40568,40579,0,0,20,0,0],"40572":[-1,40573,0,0,7,0,0],"40573":[-1,40574,0,0,6,0,0],"40574":[-1,40578,0,0,5,0,0],"40575":[-1,-1,0,0,1,0,0],"40576":[40575,40577,0,0,3,0,0],"40577":[-1,-1,0,0,1,0,0],"40578":[40576,-1,0,0,4,0,0],"40579":[40572,40584,0,0,13,0,0],"40580":[-1,-1,0,0,1,0,0],"40581":[40580,-1,0,0,2,0,0],"40582":[40581,40583,0,0,4,0,0],"40583":[-1,-1,0,0,1,0,0],"40584":[40582,-1,0,0,5,0,0],"40585":[40571,40586,0,0,26,0,0],"40586":[-1,40589,0,0,5,0,0],"40587":[-1,40588,0,0,2,0,0],"40588":[-1,-1,0,0,1,0,0],"40589":[40587,40590,0,0,4,0,0],"40590":[-1,-1,0,0,1,0,0],"40591":[40585,40598,0,0,44,0,0],"40592":[-1,-1,0,0,1,0,0],"40593":[40592,-1,0,0,2,0,0],"40594":[40593,40596,0,0,6,0,0],"40595":[-1,-1,0,0,1,0,0],"40596":[40595,40597,0,0,3,0,0],"40597":[-1,-1,0,0,1,0,0],"40598":[40594,40605,0,0,17,0,0],"40599":[-1,-1,0,0,1,0,0],"40600":[40599,40602,0,0,4,0,0],"40601":[-1,-1,0,0,1,0,0],"40602":[40601,-1,0,0,2,0,0],"40603":[40600,-1,0,0,5,0,0],"40604":[40603,-1,0,0,6,0,0],"40605":[40604,40606,0,0,10,0,0],"40606":[-1,40608,0,0,3,0,0],"40607":[-1,-1,0,0,1,0,0],"40608":[40607,-1,0,0,2,0,0],"40609":[8948,50518,0,0,80042,0,0],"74168":[-1,74169,0,0,2,0,0],"74169":[-1,-1,0,0,1,0,0],"74170":[74168,-1,0,0,3,0,0],"74171":[74170,-1,0,0,4,0,0],"74172":[74171,-1,0,3,8,0,1],"40613":[74172,-1,0,12,21,0,1],"74173":[40613,-1,0,27,49,0,1],"40652":[74173,-1,0,49,99,0,1],"74186":[40652,-1,0,2053,2153,0,1],"74562":[74186,-1,0,1947,4101,0,1],"43907":[74562,-1,0,8284,12386,0,1],"50518":[43907,-1,0,16850,29237,0,1]}},{"root":40609,"xd":8,"xt":17,"xa":0,"xin":17,"xdp":0,"frag":0,"k":{"8948":[-1,32579,11190,0,50804,-1,0],"32579":[-1,73727,29579,0,39613,-1,0],"73727":[-1,38981,7809,0,10033,-1,0],"38981":[-1,73989,196,0,2223,-1,0],"73989":[-1,40516,1220,0,2026,-1,0],"40516":[-1,40591,689,0,805,-1,0],"40567":[-1,40585,70,0,97,-1,0],"40568":[-1,74167,0,0,6,0,0],"74167":[-1,40570,3,0,5,-1,0],"40570":[-1,-1,0,0,1,0,0],"40571":[40568,40579,0,0,20,0,0],"40572":[-1,40573,0,0,7,0,0],"40573":[-1,40574,0,0,6,0,0],"40574":[-1,40578,0,0,5,0,0],"40575":[-1,-1,0,0,1,0,0],"40576":[40575,40577,0,0,3,0,0],"40577":[-1,-1,0,0,1,0,0],"40578":[40576,-1,0,0,4,0,0],"40579":[40572,40584,0,0,13,0,0],"40580":[-1,-1,0,0,1,0,0],"40581":[40580,-1,0,0,2,0,0],"40582":[40581,40583,0,0,4,0,0],"40583":[-1,-1,0,0,1,0,0],"40584":[40582,-1,0,0,5,0,0],"40585":[40571,40586,0,0,26,0,0],"40586":[-1,40589,0,0,5,0,0],"40587":[-1,40588,0,0,2,0,0],"40588":[-1,-1,0,0,1,0,0],"40589":[40587,40590,0,0,4,0,0],"40590":[-1,-1,0,0,1,0,0],"40591":[40567,40598,0,0,115,0,0],"40592":[-1,-1,0,0,1,0,0],"40593":[40592,-1,0,0,2,0,0],"40594":[40593,40596,0,0,6,0,0],"40595":[-1,-1,0,0,1,0,0],"40596":[40595,40597,0,0,3,0,0],"40597":[-1,-1,0,0,1,0,0],"40598":[40594,40605,0,0,17,0,0],"40599":[-1,-1,0,0,1,0,0],"40600":[40599,40602,0,0,4,0,0],"40601":[-1,-1,0,0,1,0,0],"40602":[40601,-1,0,0,2,0,0],"40603":[40600,-1,0,0,5,0,0],"40604":[40603,-1,0,0,6,0,0],"40605":[40604,40606,0,0,10,0,0],"40606":[-1,40608,0,0,3,0,0],"40607":[-1,-1,0,0,1,0,0],"40608":[40607,-1,0,0,2,0,0],"40609":[8948,50518,0,0,80042,0,0],"74168":[-1,74169,0,0,2,0,0],"74169":[-1,-1,0,0,1,0,0],"74170":[74168,-1,0,0,3,0,0],"74171":[74170,-1,0,0,4,0,0],"74172":[74171,-1,0,3,8,0,1],"40613":[74172,-1,0,12,21,0,1],"74173":[40613,-1,0,27,49,0,1],"40652":[74173,-1,0,49,99,0,1],"74186":[40652,-1,0,2053,2153,0,1],"74562":[74186,-1,0,1947,4101,0,1],"43907":[74562,-1,0,8284,12386,0,1],"50518":[43907,-1,0,16850,29237,0,1]}},{"root":40609,"xd":7,"xt":115,"xa":76,"xin":39,"xdp":0,"frag":2,"k":{"8948":[-1,32579,11190,0,50804,-1,0],"32579":[-1,73727,29579,0,39613,-1,0],"73727":[-1,38981,7809,0,10033,-1,0],"38981":[-1,73989,196,0,2223,-1,0],"73989":[-1,40516,1220,0,2026,-1,0],"40516":[-1,40598,689,0,805,-1,0],"40567":[-1,40585,70,0,97,-1,0],"40568":[-1,74167,0,0,6,0,0],"74167":[-1,40570,3,0,5,-1,0],"40570":[-1,-1,0,0,1,0,0],"40571":[40568,40579,0,0,20,0,0],"40572":[-1,40573,0,0,7,0,0],"40573":[-1,40574,0,0,6,0,0],"40574":[-1,40578,0,0,5,0,0],"40575":[-1,-1,0,0,1,0,0],"40576":[40575,40577,0,0,3,0,0],"40577":[-1,-1,0,0,1,0,0],"40578":[40576,-1,0,0,4,0,0],"40579":[40572,40584,0,0,13,0,0],"40580":[-1,-1,0,0,1,0,0],"40581":[40580,-1,0,0,2,0,0],"40582":[40581,40583,0,0,4,0,0],"40583":[-1,-1,0,0,1,0,0],"40584":[40582,-1,0,0,5,0,0],"40585":[40571,40586,0,0,26,0,0],"40586":[-1,40589,0,0,5,0,0],"40587":[-1,40588,0,0,2,0,0],"40588":[-1,-1,0,0,1,0,0],"40589":[40587,40590,0,0,4,0,0],"40590":[-1,-1,0,0,1,0,0],"40591":[40567,40594,0,0,104,0,0],"40592":[-1,-1,0,0,1,0,0],"40593":[40592,-1,0,0,2,0,0],"40594":[40593,40596,0,0,6,0,0],"40595":[-1,-1,0,0,1,0,0],"40596":[40595,40597,0,0,3,0,0],"40597":[-1,-1,0,0,1,0,0],"40598":[40591,40605,0,0,115,0,0],"40599":[-1,-1,0,0,1,0,0],"40600":[40599,40602,0,0,4,0,0],"40601":[-1,-1,0,0,1,0,0],"40602":[40601,-1,0,0,2,0,0],"40603":[40600,-1,0,0,5,0,0],"40604":[40603,-1,0,0,6,0,0],"40605":[40604,40606,0,0,10,0,0],"40606":[-1,40608,0,0,3,0,0],"40607":[-1,-1,0,0,1,0,0],"40608":[40607,-1,0,0,2,0,0],"40609":[8948,50518,0,0,80042,0,0],"74168":[-1,74169,0,0,2,0,0],"74169":[-1,-1,0,0,1,0,0],"74170":[74168,-1,0,0,3,0,0],"74171":[74170,-1,0,0,4,0,0],"74172":[74171,-1,0,3,8,0,1],"40613":[74172,-1,0,12,21,0,1],"74173":[40613,-1,0,27,49,0,1],"40652":[74173,-1,0,49,99,0,1],"74186":[40652,-1,0,2053,2153,0,1],"74562":[74186,-1,0,1947,4101,0,1],"43907":[74562,-1,0,8284,12386,0,1],"50518":[43907,-1,0,16850,29237,0,1]}},{"root":40609,"xd":6,"xt":115,"xa":76,"xin":39,"xdp":0,"frag":2,"k":{"8948":[-1,32579,11190,0,50804,-1,0],"32579":[-1,73727,29579,0,39613,-1,0],"73727":[-1,38981,7809,0,10033,-1,0],"38981":[-1,40516,196,0,2223,-1,0],"73989":[-1,-1,1220,689,1910,-1,-1],"40516":[73989,40598,0,0,2026,0,0],"40567":[-1,40585,70,0,97,-1,0],"40568":[-1,74167,0,0,6,0,0],"74167":[-1,40570,3,0,5,-1,0],"40570":[-1,-1,0,0,1,0,0],"40571":[40568,40579,0,0,20,0,0],"40572":[-1,40573,0,0,7,0,0],"40573":[-1,40574,0,0,6,0,0],"40574":[-1,40578,0,0,5,0,0],"40575":[-1,-1,0,0,1,0,0],"40576":[40575,40577,0,0,3,0,0],"40577":[-1,-1,0,0,1,0,0],"40578":[40576,-1,0,0,4,0,0],"40579":[40572,40584,0,0,13,0,0],"40580":[-1,-1,0,0,1,0,0],"40581":[40580,-1,0,0,2,0,0],"40582":[40581,40583,0,0,4,0,0],"40583":[-1,-1,0,0,1,0,0],"40584":[40582,-1,0,0,5,0,0],"40585":[40571,40586,0,0,26,0,0],"40586":[-1,40589,0,0,5,0,0],"40587":[-1,40588,0,0,2,0,0],"40588":[-1,-1,0,0,1,0,0],"40589":[40587,40590,0,0,4,0,0],"40590":[-1,-1,0,0,1,0,0],"40591":[40567,40594,0,0,104,0,0],"40592":[-1,-1,0,0,1,0,0],"40593":[40592,-1,0,0,2,0,0],"40594":[40593,40596,0,0,6,0,0],"40595":[-1,-1,0,0,1,0,0],"40596":[40595,40597,0,0,3,0,0],"40597":[-1,-1,0,0,1,0,0],"40598":[40591,40605,0,0,115,0,0],"40599":[-1,-1,0,0,1,0,0],"40600":[40599,40602,0,0,4,0,0],"40601":[-1,-1,0,0,1,0,0],"40602":[40601,-1,0,0,2,0,0],"40603":[40600,-1,0,0,5,0,0],"40604":[40603,-1,0,0,6,0,0],"40605":[40604,40606,0,0,10,0,0],"40606":[-1,40608,0,0,3,0,0],"40607":[-1,-1,0,0,1,0,0],"40608":[40607,-1,0,0,2,0,0],"40609":[8948,50518,0,0,80042,0,0],"74168":[-1,74169,0,0,2,0,0],"74169":[-1,-1,0,0,1,0,0],"74170":[74168,-1,0,0,3,0,0],"74171":[74170,-1,0,0,4,0,0],"74172":[74171,-1,0,3,8,0,1],"40613":[74172,-1,0,12,21,0,1],"74173":[40613,-1,0,27,49,0,1],"40652":[74173,-1,0,49,99,0,1],"74186":[40652,-1,0,2053,2153,0,1],"74562":[74186,-1,0,1947,4101,0,1],"43907":[74562,-1,0,8284,12386,0,1],"50518":[43907,-1,0,16850,29237,0,1]}},{"root":40609,"xd":5,"xt":2026,"xa":1987,"xin":39,"xdp":0,"frag":3,"k":{"8948":[-1,32579,11190,0,50804,-1,0],"32579":[-1,73727,29579,0,39613,-1,0],"73727":[-1,38981,7809,0,10033,-1,0],"38981":[-1,40598,196,0,2223,-1,0],"73989":[-1,-1,1220,689,1910,-1,-1],"40516":[73989,40591,0,0,2015,0,0],"40567":[-1,40585,70,0,97,-1,0],"40568":[-1,74167,0,0,6,0,0],"74167":[-1,40570,3,0,5,-1,0],"40570":[-1,-1,0,0,1,0,0],"40571":[40568,40579,0,0,20,0,0],"40572":[-1,40573,0,0,7,0,0],"40573":[-1,40574,0,0,6,0,0],"40574":[-1,40578,0,0,5,0,0],"40575":[-1,-1,0,0,1,0,0],"40576":[40575,40577,0,0,3,0,0],"40577":[-1,-1,0,0,1,0,0],"40578":[40576,-1,0,0,4,0,0],"40579":[40572,40584,0,0,13,0,0],"40580":[-1,-1,0,0,1,0,0],"40581":[40580,-1,0,0,2,0,0],"40582":[40581,40583,0,0,4,0,0],"40583":[-1,-1,0,0,1,0,0],"40584":[40582,-1,0,0,5,0,0],"40585":[40571,40586,0,0,26,0,0],"40586":[-1,40589,0,0,5,0,0],"40587":[-1,40588,0,0,2,0,0],"40588":[-1,-1,0,0,1,0,0],"40589":[40587,40590,0,0,4,0,0],"40590":[-1,-1,0,0,1,0,0],"40591":[40567,40594,0,0,104,0,0],"40592":[-1,-1,0,0,1,0,0],"40593":[40592,-1,0,0,2,0,0],"40594":[40593,40596,0,0,6,0,0],"40595":[-1,-1,0,0,1,0,0],"40596":[40595,40597,0,0,3,0,0],"40597":[-1,-1,0,0,1,0,0],"40598":[40516,40605,0,0,2026,0,0],"40599":[-1,-1,0,0,1,0,0],"40600":[40599,40602,0,0,4,0,0],"40601":[-1,-1,0,0,1,0,0],"40602":[40601,-1,0,0,2,0,0],"40603":[40600,-1,0,0,5,0,0],"40604":[40603,-1,0,0,6,0,0],"40605":[40604,40606,0,0,10,0,0],"40606":[-1,40608,0,0,3,0,0],"40607":[-1,-1,0,0,1,0,0],"40608":[40607,-1,0,0,2,0,0],"40609":[8948,50518,0,0,80042,0,0],"74168":[-1,74169,0,0,2,0,0],"74169":[-1,-1,0,0,1,0,0],"74170":[74168,-1,0,0,3,0,0],"74171":[74170,-1,0,0,4,0,0],"74172":[74171,-1,0,3,8,0,1],"40613":[74172,-1,0,12,21,0,1],"74173":[40613,-1,0,27,49,0,1],"40652":[74173,-1,0,49,99,0,1],"74186":[40652,-1,0,2053,2153,0,1],"74562":[74186,-1,0,1947,4101,0,1],"43907":[74562,-1,0,8284,12386,0,1],"50518":[43907,-1,0,16850,29237,0,1]}},{"root":40609,"xd":4,"xt":2026,"xa":1987,"xin":39,"xdp":0,"frag":3,"k":{"8948":[-1,32579,11190,0,50804,-1,0],"32579":[-1,38981,29579,0,39613,-1,0],"73727":[-1,-1,7809,196,8006,-1,-1],"38981":[73727,40598,0,0,10033,0,0],"73989":[-1,-1,1220,689,1910,-1,-1],"40516":[73989,40591,0,0,2015,0,0],"40567":[-1,40585,70,0,97,-1,0],"40568":[-1,74167,0,0,6,0,0],"74167":[-1,40570,3,0,5,-1,0],"40570":[-1,-1,0,0,1,0,0],"40571":[40568,40579,0,0,20,0,0],"40572":[-1,40573,0,0,7,0,0],"40573":[-1,40574,0,0,6,0,0],"40574":[-1,40578,0,0,5,0,0],"40575":[-1,-1,0,0,1,0,0],"40576":[40575,40577,0,0,3,0,0],"40577":[-1,-1,0,0,1,0,0],"40578":[40576,-1,0,0,4,0,0],"40579":[40572,40584,0,0,13,0,0],"40580":[-1,-1,0,0,1,0,0],"40581":[40580,-1,0,0,2,0,0],"40582":[40581,40583,0,0,4,0,0],"40583":[-1,-1,0,0,1,0,0],"40584":[40582,-1,0,0,5,0,0],"40585":[40571,40586,0,0,26,0,0],"40586":[-1,40589,0,0,5,0,0],"40587":[-1,40588,0,0,2,0,0],"40588":[-1,-1,0,0,1,0,0],"40589":[40587,40590,0,0,4,0,0],"40590":[-1,-1,0,0,1,0,0],"40591":[40567,40594,0,0,104,0,0],"40592":[-1,-1,0,0,1,0,0],"40593":[40592,-1,0,0,2,0,0],"40594":[40593,40596,0,0,6,0,0],"40595":[-1,-1,0,0,1,0,0],"40596":[40595,40597,0,0,3,0,0],"40597":[-1,-1,0,0,1,0,0],"40598":[40516,40605,0,0,2026,0,0],"40599":[-1,-1,0,0,1,0,0],"40600":[40599,40602,0,0,4,0,0],"40601":[-1,-1,0,0,1,0,0],"40602":[40601,-1,0,0,2,0,0],"40603":[40600,-1,0,0,5,0,0],"40604":[40603,-1,0,0,6,0,0],"40605":[40604,40606,0,0,10,0,0],"40606":[-1,40608,0,0,3,0,0],"40607":[-1,-1,0,0,1,0,0],"40608":[40607,-1,0,0,2,0,0],"40609":[8948,50518,0,0,80042,0,0],"74168":[-1,74169,0,0,2,0,0],"74169":[-1,-1,0,0,1,0,0],"74170":[74168,-1,0,0,3,0,0],"74171":[74170,-1,0,0,4,0,0],"74172":[74171,-1,0,3,8,0,1],"40613":[74172,-1,0,12,21,0,1],"74173":[40613,-1,0,27,49,0,1],"40652":[74173,-1,0,49,99,0,1],"74186":[40652,-1,0,2053,2153,0,1],"74562":[74186,-1,0,1947,4101,0,1],"43907":[74562,-1,0,8284,12386,0,1],"50518":[43907,-1,0,16850,29237,0,1]}},{"root":40609,"xd":3,"xt":10033,"xa":9994,"xin":39,"xdp":0,"frag":3,"k":{"8948":[-1,32579,11190,0,50804,-1,0],"32579":[-1,40598,29579,0,39613,-1,0],"73727":[-1,-1,7809,196,8006,-1,-1],"38981":[73727,40516,0,0,10022,0,0],"73989":[-1,-1,1220,689,1910,-1,-1],"40516":[73989,40591,0,0,2015,0,0],"40567":[-1,40585,70,0,97,-1,0],"40568":[-1,74167,0,0,6,0,0],"74167":[-1,40570,3,0,5,-1,0],"40570":[-1,-1,0,0,1,0,0],"40571":[40568,40579,0,0,20,0,0],"40572":[-1,40573,0,0,7,0,0],"40573":[-1,40574,0,0,6,0,0],"40574":[-1,40578,0,0,5,0,0],"40575":[-1,-1,0,0,1,0,0],"40576":[40575,40577,0,0,3,0,0],"40577":[-1,-1,0,0,1,0,0],"40578":[40576,-1,0,0,4,0,0],"40579":[40572,40584,0,0,13,0,0],"40580":[-1,-1,0,0,1,0,0],"40581":[40580,-1,0,0,2,0,0],"40582":[40581,40583,0,0,4,0,0],"40583":[-1,-1,0,0,1,0,0],"40584":[40582,-1,0,0,5,0,0],"40585":[40571,40586,0,0,26,0,0],"40586":[-1,40589,0,0,5,0,0],"40587":[-1,40588,0,0,2,0,0],"40588":[-1,-1,0,0,1,0,0],"40589":[40587,40590,0,0,4,0,0],"40590":[-1,-1,0,0,1,0,0],"40591":[40567,40594,0,0,104,0,0],"40592":[-1,-1,0,0,1,0,0],"40593":[40592,-1,0,0,2,0,0],"40594":[40593,40596,0,0,6,0,0],"40595":[-1,-1,0,0,1,0,0],"40596":[40595,40597,0,0,3,0,0],"40597":[-1,-1,0,0,1,0,0],"40598":[38981,40605,0,0,10033,0,0],"40599":[-1,-1,0,0,1,0,0],"40600":[40599,40602,0,0,4,0,0],"40601":[-1,-1,0,0,1,0,0],"40602":[40601,-1,0,0,2,0,0],"40603":[40600,-1,0,0,5,0,0],"40604":[40603,-1,0,0,6,0,0],"40605":[40604,40606,0,0,10,0,0],"40606":[-1,40608,0,0,3,0,0],"40607":[-1,-1,0,0,1,0,0],"40608":[40607,-1,0,0,2,0,0],"40609":[8948,50518,0,0,80042,0,0],"74168":[-1,74169,0,0,2,0,0],"74169":[-1,-1,0,0,1,0,0],"74170":[74168,-1,0,0,3,0,0],"74171":[74170,-1,0,0,4,0,0],"74172":[74171,-1,0,3,8,0,1],"40613":[74172,-1,0,12,21,0,1],"74173":[40613,-1,0,27,49,0,1],"40652":[74173,-1,0,49,99,0,1],"74186":[40652,-1,0,2053,2153,0,1],"74562":[74186,-1,0,1947,4101,0,1],"43907":[74562,-1,0,8284,12386,0,1],"50518":[43907,-1,0,16850,29237,0,1]}},{"root":40609,"xd":2,"xt":10033,"xa":9994,"xin":39,"xdp":0,"frag":3,"k":{"8948":[-1,-1,11190,29579,40770,-1,-1],"32579":[8948,40598,0,0,50804,0,0],"73727":[-1,-1,7809,196,8006,-1,-1],"38981":[73727,40516,0,0,10022,0,0],"73989":[-1,-1,1220,689,1910,-1,-1],"40516":[73989,40591,0,0,2015,0,0],"40567":[-1,40585,70,0,97,-1,0],"40568":[-1,74167,0,0,6,0,0],"74167":[-1,40570,3,0,5,-1,0],"40570":[-1,-1,0,0,1,0,0],"40571":[40568,40579,0,0,20,0,0],"40572":[-1,40573,0,0,7,0,0],"40573":[-1,40574,0,0,6,0,0],"40574":[-1,40578,0,0,5,0,0],"40575":[-1,-1,0,0,1,0,0],"40576":[40575,40577,0,0,3,0,0],"40577":[-1,-1,0,0,1,0,0],"40578":[40576,-1,0,0,4,0,0],"40579":[40572,40584,0,0,13,0,0],"40580":[-1,-1,0,0,1,0,0],"40581":[40580,-1,0,0,2,0,0],"40582":[40581,40583,0,0,4,0,0],"40583":[-1,-1,0,0,1,0,0],"40584":[40582,-1,0,0,5,0,0],"40585":[40571,40586,0,0,26,0,0],"40586":[-1,40589,0,0,5,0,0],"40587":[-1,40588,0,0,2,0,0],"40588":[-1,-1,0,0,1,0,0],"40589":[40587,40590,0,0,4,0,0],"40590":[-1,-1,0,0,1,0,0],"40591":[40567,40594,0,0,104,0,0],"40592":[-1,-1,0,0,1,0,0],"40593":[40592,-1,0,0,2,0,0],"40594":[40593,40596,0,0,6,0,0],"40595":[-1,-1,0,0,1,0,0],"40596":[40595,40597,0,0,3,0,0],"40597":[-1,-1,0,0,1,0,0],"40598":[38981,40605,0,0,10033,0,0],"40599":[-1,-1,0,0,1,0,0],"40600":[40599,40602,0,0,4,0,0],"40601":[-1,-1,0,0,1,0,0],"40602":[40601,-1,0,0,2,0,0],"40603":[40600,-1,0,0,5,0,0],"40604":[40603,-1,0,0,6,0,0],"40605":[40604,40606,0,0,10,0,0],"40606":[-1,40608,0,0,3,0,0],"40607":[-1,-1,0,0,1,0,0],"40608":[40607,-1,0,0,2,0,0],"40609":[32579,50518,0,0,80042,0,0],"74168":[-1,74169,0,0,2,0,0],"74169":[-1,-1,0,0,1,0,0],"74170":[74168,-1,0,0,3,0,0],"74171":[74170,-1,0,0,4,0,0],"74172":[74171,-1,0,3,8,0,1],"40613":[74172,-1,0,12,21,0,1],"74173":[40613,-1,0,27,49,0,1],"40652":[74173,-1,0,49,99,0,1],"74186":[40652,-1,0,2053,2153,0,1],"74562":[74186,-1,0,1947,4101,0,1],"43907":[74562,-1,0,8284,12386,0,1],"50518":[43907,-1,0,16850,29237,0,1]}},{"root":40609,"xd":1,"xt":50804,"xa":50765,"xin":39,"xdp":0,"frag":3,"k":{"8948":[-1,-1,11190,29579,40770,-1,-1],"32579":[8948,38981,0,0,50793,0,0],"73727":[-1,-1,7809,196,8006,-1,-1],"38981":[73727,40516,0,0,10022,0,0],"73989":[-1,-1,1220,689,1910,-1,-1],"40516":[73989,40591,0,0,2015,0,0],"40567":[-1,40585,70,0,97,-1,0],"40568":[-1,74167,0,0,6,0,0],"74167":[-1,40570,3,0,5,-1,0],"40570":[-1,-1,0,0,1,0,0],"40571":[40568,40579,0,0,20,0,0],"40572":[-1,40573,0,0,7,0,0],"40573":[-1,40574,0,0,6,0,0],"40574":[-1,40578,0,0,5,0,0],"40575":[-1,-1,0,0,1,0,0],"40576":[40575,40577,0,0,3,0,0],"40577":[-1,-1,0,0,1,0,0],"40578":[40576,-1,0,0,4,0,0],"40579":[40572,40584,0,0,13,0,0],"40580":[-1,-1,0,0,1,0,0],"40581":[40580,-1,0,0,2,0,0],"40582":[40581,40583,0,0,4,0,0],"40583":[-1,-1,0,0,1,0,0],"40584":[40582,-1,0,0,5,0,0],"40585":[40571,40586,0,0,26,0,0],"40586":[-1,40589,0,0,5,0,0],"40587":[-1,40588,0,0,2,0,0],"40588":[-1,-1,0,0,1,0,0],"40589":[40587,40590,0,0,4,0,0],"40590":[-1,-1,0,0,1,0,0],"40591":[40567,40594,0,0,104,0,0],"40592":[-1,-1,0,0,1,0,0],"40593":[40592,-1,0,0,2,0,0],"40594":[40593,40596,0,0,6,0,0],"40595":[-1,-1,0,0,1,0,0],"40596":[40595,40597,0,0,3,0,0],"40597":[-1,-1,0,0,1,0,0],"40598":[32579,40605,0,0,50804,0,0],"40599":[-1,-1,0,0,1,0,0],"40600":[40599,40602,0,0,4,0,0],"40601":[-1,-1,0,0,1,0,0],"40602":[40601,-1,0,0,2,0,0],"40603":[40600,-1,0,0,5,0,0],"40604":[40603,-1,0,0,6,0,0],"40605":[40604,40606,0,0,10,0,0],"40606":[-1,40608,0,0,3,0,0],"40607":[-1,-1,0,0,1,0,0],"40608":[40607,-1,0,0,2,0,0],"40609":[40598,50518,0,0,80042,0,0],"74168":[-1,74169,0,0,2,0,0],"74169":[-1,-1,0,0,1,0,0],"74170":[74168,-1,0,0,3,0,0],"74171":[74170,-1,0,0,4,0,0],"74172":[74171,-1,0,3,8,0,1],"40613":[74172,-1,0,12,21,0,1],"74173":[40613,-1,0,27,49,0,1],"40652":[74173,-1,0,49,99,0,1],"74186":[40652,-1,0,2053,2153,0,1],"74562":[74186,-1,0,1947,4101,0,1],"43907":[74562,-1,0,8284,12386,0,1],"50518":[43907,-1,0,16850,29237,0,1]}},{"root":40598,"xd":0,"xt":80042,"xa":50765,"xin":45,"xdp":29232,"frag":4,"k":{"8948":[-1,-1,11190,29579,40770,-1,-1],"32579":[8948,38981,0,0,50793,0,0],"73727":[-1,-1,7809,196,8006,-1,-1],"38981":[73727,40516,0,0,10022,0,0],"73989":[-1,-1,1220,689,1910,-1,-1],"40516":[73989,40591,0,0,2015,0,0],"40567":[-1,40585,70,0,97,-1,0],"40568":[-1,74167,0,0,6,0,0],"74167":[-1,40570,3,0,5,-1,0],"40570":[-1,-1,0,0,1,0,0],"40571":[40568,40579,0,0,20,0,0],"40572":[-1,40573,0,0,7,0,0],"40573":[-1,40574,0,0,6,0,0],"40574":[-1,40578,0,0,5,0,0],"40575":[-1,-1,0,0,1,0,0],"40576":[40575,40577,0,0,3,0,0],"40577":[-1,-1,0,0,1,0,0],"40578":[40576,-1,0,0,4,0,0],"40579":[40572,40584,0,0,13,0,0],"40580":[-1,-1,0,0,1,0,0],"40581":[40580,-1,0,0,2,0,0],"40582":[40581,40583,0,0,4,0,0],"40583":[-1,-1,0,0,1,0,0],"40584":[40582,-1,0,0,5,0,0],"40585":[40571,40586,0,0,26,0,0],"40586":[-1,40589,0,0,5,0,0],"40587":[-1,40588,0,0,2,0,0],"40588":[-1,-1,0,0,1,0,0],"40589":[40587,40590,0,0,4,0,0],"40590":[-1,-1,0,0,1,0,0],"40591":[40567,40594,0,0,104,0,0],"40592":[-1,-1,0,0,1,0,0],"40593":[40592,-1,0,0,2,0,0],"40594":[40593,40596,0,0,6,0,0],"40595":[-1,-1,0,0,1,0,0],"40596":[40595,40597,0,0,3,0,0],"40597":[-1,-1,0,0,1,0,0],"40598":[32579,40609,0,0,80042,0,0],"40599":[-1,-1,0,0,1,0,0],"40600":[40599,40602,0,0,4,0,0],"40601":[-1,-1,0,0,1,0,0],"40602":[40601,-1,0,0,2,0,0],"40603":[40600,-1,0,0,5,0,0],"40604":[40603,-1,0,0,6,0,0],"40605":[40604,40606,0,0,10,0,0],"40606":[-1,40608,0,0,3,0,0],"40607":[-1,-1,0,0,1,0,0],"40608":[40607,-1,0,0,2,0,0],"40609":[40605,50518,0,0,29248,0,0],"74168":[-1,74169,0,0,2,0,0],"74169":[-1,-1,0,0,1,0,0],"74170":[74168,-1,0,0,3,0,0],"74171":[74170,-1,0,0,4,0,0],"74172":[74171,-1,0,3,8,0,1],"40613":[74172,-1,0,12,21,0,1],"74173":[40613,-1,0,27,49,0,1],"40652":[74173,-1,0,49,99,0,1],"74186":[40652,-1,0,2053,2153,0,1],"74562":[74186,-1,0,1947,4101,0,1],"43907":[74562,-1,0,8284,12386,0,1],"50518":[43907,-1,0,16850,29237,0,1]}}]}</script>
+<script>
+(() => {
+const D = JSON.parse(document.getElementById('dados').textContent);
+const nf = new Intl.NumberFormat('pt-BR');
+const NS = 'http://www.w3.org/2000/svg';
+const reduzir = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const info = new Map(D.nodes.map((n, i) => [n.id, { ...n, rank: i }]));
+const X = D.x;
+const cor = c => c < 0 ? 'var(--antes)' : c > 0 ? 'var(--depois)' : 'var(--ouro)';
+const cap = s => s.replace(/\b\w/g, m => m.toUpperCase());
+function nome(id) {
+  const n = info.get(id);
+  if (n.c === 0) return `Saryan #${id}`;
+  const a = cap(n.a).split(' ').slice(-2).join(' ');
+  return n.g === 'Post Impressionism' ? `${a} #${id}` : `${n.g} · ${a}`;
+}
+const el = (tag, attrs = {}, pai) => {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (pai) pai.append(e);
+  return e;
+};
+
+/* ---------- passos ---------- */
+const passos = [];
+passos.push({ tipo: 'descida', snap: 0, fase: 0 });
+D.rots.forEach((r, i) => passos.push({ tipo: 'rot', snap: i + 1, rot: r, i, fase: 1 }));
+passos.push({ tipo: 'contar', snap: D.snaps.length - 1, fase: 2 });
+passos.push({ tipo: 'pagina', snap: D.snaps.length - 1, fase: 3 });
+passos.push({ tipo: 'vista', snap: D.snaps.length - 1, fase: 4 });
+const FASES = ['1. Descida', '2. Afunilamento', '3. Contagem', '4. Página', '5. Vista'];
+
+/* ---------- layout ---------- */
+const SLOT = 8.4, ROW = 21, PX = 18, PY = 22;
+const nSlots = 2 * D.nodes.length + 1;
+const W = PX * 2 + nSlots * SLOT;
+function profundidadeMax() {
+  let m = 0;
+  for (const s of D.snaps) {
+    const pilha = [[s.root, 0]];
+    while (pilha.length) {
+      const [id, d] = pilha.pop(); m = Math.max(m, d + 1);
+      const [l, r] = s.k[id];
+      if (l >= 0) pilha.push([l, d + 1]);
+      if (r >= 0) pilha.push([r, d + 1]);
+    }
+  }
+  return m;
+}
+const PMAX = profundidadeMax();
+const EIXO_Y = PY + PMAX * ROW + 26;
+const H = EIXO_Y + 58;
+const sx = slot => PX + (slot + 0.5) * SLOT;
+
+function layout(snap) {
+  const s = D.snaps[snap];
+  const pos = new Map(), rec = [], arestas = [];
+  const pilha = [[s.root, 0]];
+  while (pilha.length) {
+    const [id, d] = pilha.pop();
+    const r = info.get(id).rank;
+    const x = sx(2 * r + 1), y = PY + d * ROW;
+    pos.set(id, { x, y, d });
+    const [l, rr, ls, rs, tam, lc, rc] = s.k[id];
+    if (l >= 0) { pilha.push([l, d + 1]); arestas.push([id, l]); }
+    else if (ls > 0) rec.push({ x: sx(2 * r), y: PY + (d + 1) * ROW, pai: id, n: ls, c: lc });
+    if (rr >= 0) { pilha.push([rr, d + 1]); arestas.push([id, rr]); }
+    else if (rs > 0) rec.push({ x: sx(2 * r + 2), y: PY + (d + 1) * ROW, pai: id, n: rs, c: rc });
+  }
+  return { pos, rec, arestas };
+}
+const layouts = D.snaps.map((_, i) => layout(i));
+
+/* ---------- svg base ---------- */
+const svg = document.getElementById('arvore');
+svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+const gGuias = el('g', {}, svg), gArestas = el('g', {}, svg), gRec = el('g', {}, svg),
+      gNos = el('g', {}, svg), gAneis = el('g', {}, svg), gRot = el('g', {}, svg), gAlvos = el('g', {}, svg);
+
+// eixo da ordem
+const gEixo = el('g', {}, svg);
+el('line', { x1: sx(0), x2: sx(nSlots - 1), y1: EIXO_Y, y2: EIXO_Y, class: 'eixo' }, gEixo);
+const marcas = new Map();
+for (const n of D.nodes) {
+  const x = sx(2 * info.get(n.id).rank + 1);
+  marcas.set(n.id, el('line', { x1: x, x2: x, y1: EIXO_Y - 6, y2: EIXO_Y + 6, stroke: cor(n.c), 'stroke-width': n.c === 0 ? 2.4 : 1.6 }, gEixo));
+}
+const dentro = D.nodes.map(n => info.get(n.id)).filter(n => n.c === 0);
+const x0 = sx(2 * dentro[0].rank + 1), x1 = sx(2 * dentro[dentro.length - 1].rank + 1);
+el('path', { d: `M${x0} ${EIXO_Y + 12} v6 H${x1} v-6`, fill: 'none', stroke: 'var(--ouro)', 'stroke-width': 1 }, gEixo);
+const tB = el('text', { x: (x0 + x1) / 2, y: EIXO_Y + 34, 'text-anchor': 'middle', class: 'eixo-t ouro' }, gEixo);
+tB.textContent = '45 obras de Saryan: um bloco contíguo na ordem da chave';
+const tA = el('text', { x: sx(0), y: EIXO_Y + 34, class: 'eixo-t' }, gEixo); tA.textContent = '← vem antes';
+const tD = el('text', { x: sx(nSlots - 1), y: EIXO_Y + 34, 'text-anchor': 'end', class: 'eixo-t' }, gEixo); tD.textContent = 'vem depois →';
+
+// nós (criados uma vez)
+const circ = new Map(), alvo = new Map();
+for (const n of D.nodes) {
+  circ.set(n.id, el('circle', { r: n.c === 0 ? 4.6 : 3.8, fill: cor(n.c), class: 'no' }, gNos));
+  const a = el('circle', { r: 8, class: 'alvo' }, gAlvos);
+  a.addEventListener('pointerenter', ev => dicaNo(ev, n.id));
+  a.addEventListener('pointerleave', esconderDica);
+  a.addEventListener('click', ev => dicaNo(ev, n.id));
+  alvo.set(n.id, a);
+}
+
+/* ---------- dica ---------- */
+const dica = document.getElementById('dica');
+let snapAtual = 0;
+function mostrarDica(ev, html) {
+  dica.innerHTML = html; dica.hidden = false;
+  const w = dica.offsetWidth, h = dica.offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + w > innerWidth - 8) x = ev.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = ev.clientY - h - 14;
+  dica.style.left = x + 'px'; dica.style.top = y + 'px';
+}
+function esconderDica() { dica.hidden = true; }
+function dicaNo(ev, id) {
+  const n = info.get(id), k = D.snaps[snapAtual].k[id];
+  const classe = n.c === 0 ? 'dentro do intervalo' : n.c < 0 ? 'antes do intervalo' : 'depois do intervalo';
+  mostrarDica(ev, `<b>${cap(n.a)}</b> · ${n.g}<br><span class="m">id ${id} · ${n.t}</span><br>${classe}<br><span class="m">tam (subárvore) = ${nf.format(k[4])} · profundidade ${layouts[snapAtual].pos.get(id).d}</span>`);
+}
+
+/* ---------- desenho ---------- */
+let posAtual = new Map(layouts[0].pos);
+function desenharArestas(pos, arestas, vivas) {
+  gArestas.replaceChildren();
+  for (const [a, b] of arestas) {
+    const p = pos.get(a), q = pos.get(b);
+    const viva = vivas.has(a + ':' + b) || vivas.has(b + ':' + a);
+    el('line', { x1: p.x, y1: p.y, x2: q.x, y2: q.y, class: 'aresta' + (viva ? ' viva' : '') }, gArestas);
+  }
+}
+function desenharNos(pos) {
+  for (const [id, c] of circ) {
+    const p = pos.get(id);
+    c.setAttribute('cx', p.x); c.setAttribute('cy', p.y);
+    alvo.get(id).setAttribute('cx', p.x); alvo.get(id).setAttribute('cy', p.y);
+  }
+}
+const compacto = n => n >= 1000 ? (n / 1000).toFixed(n >= 10000 ? 0 : 1).replace('.', ',') + 'k' : String(n);
+function desenharRec(L) {
+  gRec.replaceChildren();
+  for (const r of L.rec) {
+    const p = L.pos.get(r.pai);
+    el('line', { x1: p.x, y1: p.y, x2: r.x, y2: r.y - 4, class: 'aresta-rec' }, gRec);
+    const s = 3 + Math.min(5, Math.log10(r.n + 1) * 1.3);
+    const t = el('path', { d: `M${r.x} ${r.y - s} L${r.x + s} ${r.y + s * 0.8} L${r.x - s} ${r.y + s * 0.8} Z`, class: 'rec', fill: 'var(--recolhida)' }, gRec);
+    t.style.cursor = 'pointer';
+    const msg = `<b>Subárvore recolhida</b><br>${nf.format(r.n)} nó(s), todos ${r.c < 0 ? 'antes' : 'depois'} do intervalo<br><span class="m">nenhuma obra de Saryan aqui dentro</span>`;
+    t.addEventListener('pointerenter', ev => mostrarDica(ev, msg));
+    t.addEventListener('click', ev => mostrarDica(ev, msg));
+    t.addEventListener('pointerleave', esconderDica);
+    if (r.n >= 100) {
+      const tx = el('text', { x: r.x, y: r.y + s + 10, 'text-anchor': 'middle', class: 'rec-t' }, gRec);
+      tx.textContent = compacto(r.n);
+    }
+  }
+}
+
+function destacar(L, marcados) {
+  gAneis.replaceChildren(); gRot.replaceChildren(); gGuias.replaceChildren();
+  const px = L.pos.get(X);
+  el('circle', { cx: px.x, cy: px.y, r: 8.5, class: 'anel-x' }, gAneis);
+  for (const c of circ.values()) c.classList.toggle('apagado', marcados.size > 0);
+  for (const [id, m] of marcados) {
+    const p = L.pos.get(id);
+    circ.get(id).classList.remove('apagado');
+    if (m.anel !== false) el('circle', { cx: p.x, cy: p.y, r: 6.8, class: 'anel' }, gAneis);
+    el('line', { x1: p.x, x2: p.x, y1: p.y + 7, y2: EIXO_Y - 8, class: 'guia' }, gGuias);
+    if (m.txt) {
+      const dir = p.x < W - 230;
+      const t = el('text', { x: p.x + (dir ? 11 : -11), y: p.y + 3.5, 'text-anchor': dir ? 'start' : 'end', class: 'rotulo' + (m.fraco ? ' fraco' : '') }, gRot);
+      t.textContent = m.txt;
+    }
+  }
+  if (!marcados.has(X)) {
+    const t = el('text', { x: px.x + 11, y: px.y - 7, class: 'rotulo' }, gRot); t.textContent = 'clicada';
+  }
+}
+
+/* ---------- conteúdo de cada passo ---------- */
+const S = i => D.snaps[i];
+function marcadosDe(p) {
+  const m = new Map();
+  if (p.tipo === 'descida') {
+    D.path.forEach(([id, c], i) => m.set(id, { txt: `${i + 1}. ${nome(id)}  ${c < 0 ? '→ direita' : c > 0 ? '→ esquerda' : '= a clicada'}` }));
+  } else if (p.tipo === 'rot') {
+    m.set(p.rot.node, { txt: `${nome(p.rot.node)} sobe` });
+    m.set(p.rot.parent, { txt: `${nome(p.rot.parent)} desce`, fraco: true });
+  } else if (p.tipo === 'contar') {
+    for (const [id] of D.walk) m.set(id, { txt: 'fora: descarta', fraco: true });
+    m.set(X, { txt: 'conta 1' });
+  } else if (p.tipo === 'pagina') {
+    D.menorPath.forEach(id => m.set(id, { txt: '', fraco: true, anel: false }));
+    m.set(D.menor, { txt: `menor = a própria clicada · posto ${nf.format(D.posto)}` });
+  } else if (p.tipo === 'vista') {
+    D.vista.forEach((v, i) => { if (v) m.set(v.id, { txt: `pos ${i}` }); });
+    D.vista.forEach(v => v && v.hid.forEach(h => m.set(h, { txt: 'escondido', fraco: true, anel: false })));
+  }
+  return m;
+}
+function arestasVivas(p) {
+  const v = new Set();
+  if (p.tipo === 'descida') for (let i = 1; i < D.path.length; i++) v.add(D.path[i - 1][0] + ':' + D.path[i][0]);
+  if (p.tipo === 'rot') v.add(p.rot.node + ':' + p.rot.parent);
+  return v;
+}
+
+const COMP_DESCIDA = D.path.length;
+function texto(p) {
+  const s = S(p.snap);
+  if (p.tipo === 'descida') return {
+    t: 'A descida até a obra clicada',
+    h: `<p>A chave agora tem o id, então a comparação vai até o terceiro campo. A raiz é Saryan #40609. Ela é do mesmo artista, mas o id 40609 é maior que 40598, e por isso a descida vai para a esquerda. Ali estão os 7 nós de outros artistas que o primeiro splay empilhou no braço esquerdo, todos antes na chave. Depois vem Saryan #40591, com id menor, e logo em seguida a #40598.</p>
+        <p>Foram ${COMP_DESCIDA} comparações. Na tela a obra estava a 2 níveis da raiz (posição 4 da vista), mas na árvore real ela está a <b>${s.xd} níveis</b>. A diferença são os 7 nós escondidos na ligação entre a posição 0 e a posição 1.</p>`,
+    traco: D.path.map(([id, c]) => [info.get(id).c, nome(id), c < 0 ? 'antes → direita' : c > 0 ? 'depois → esquerda' : 'é a obra clicada'])
+  };
+  if (p.tipo === 'rot') {
+    const r = p.rot, k = D.rots.length;
+    let tipo;
+    if (r.kind === 'zig') tipo = 'Só falta a antiga raiz, Saryan #40609, e uma rotação simples (zig) a coloca no topo.';
+    else if (r.part === 1) tipo = 'A obra, o pai e o avô estão alinhados (zig-zig), porque o caminho é uma cadeia de filhos direitos. Primeiro o pai gira sobre o avô.';
+    else tipo = 'Agora a obra gira sobre o antigo pai e fecha o zig-zig. Girar o pai primeiro é o que dobra a cadeia ao meio.';
+    return {
+      t: `Rotação ${p.i + 1} de ${k}: ${r.kind}${r.parts > 1 ? ` (${r.part}/2)` : ''}`,
+      h: `<p>${tipo} ${nome(r.node)} sobe e ${nome(r.parent)} desce. Nenhum nó muda de coluna, porque a ordem em-ordem não muda.</p>
+          <p>A obra clicada está a ${s.xd} nível(is) da raiz. O caminho inteiro é uma cadeia para a direita, então os 9 passos são 4 zig-zig e um zig no final. A primeira busca precisou de 15 rotações; o clique precisa de 9.</p>`
+    };
+  }
+  if (p.tipo === 'contar') return {
+    t: 'A contagem dá 1',
+    h: `<p>O <code>contar_intervalo()</code> roda com a mesma chave da busca, que inclui o id. O "intervalo" dessa chave é uma obra só. Por isso as outras obras de Saryan nas bordas (#40591, #40594, #40596 e #40597 à esquerda, #40609, #40605 e as seguintes à direita) contam como fora e são descartadas, como qualquer obra de outro artista.</p>
+        <p>Foram ${D.comp} comparações e o resultado é <b>${D.totalBusca}</b>. É esse 1 que volta em <code>metricas.total_encontrados</code>. O <code>total: 45</code> da resposta vem da vista, que usa a chave sem id.</p>`,
+    traco: [[0, nome(X), 'conta 1 → 1'], ...D.walk.map(([id, lado]) => [info.get(id).c, `${lado < 0 ? 'esq' : 'dir'} · ${nome(id)}`, 'fora: descarta'])]
+  };
+  if (p.tipo === 'pagina') return {
+    t: 'A página tem uma obra',
+    h: `<p>O <code>menor_do_intervalo()</code> desce ${D.menorPath.length} nós pela esquerda procurando algo menor que a obra clicada dentro da chave, e não acha nada. A menor obra é a própria #40598, na posição ${nf.format(D.posto)} da árvore inteira. A página tem um único item.</p>
+        <p>Somando tudo: ${COMP_DESCIDA} + ${D.comp} + ${D.menorPath.length} = ${COMP_DESCIDA + D.comp + D.menorPath.length} comparações e ${D.rots.length} rotações. Em modo árvore a página nem vai na resposta, que leva só as métricas e a vista.</p>`
+  };
+  return {
+    t: 'A nova vista de 4 níveis',
+    h: `<p>Com a chave sem id, o <code>arvore_afunilada_vista()</code> recorta de novo as 45 obras. A #40598 é a raiz. A antiga raiz #40609 desceu para a posição 2 e levou com ela todo o lado direito, que essas rotações não tocaram: os 7 nós escondidos entre a posição 2 e a posição 6 são exatamente os 7 que estavam entre a raiz e a posição 2 na vista anterior.</p>
+        <p>Do lado esquerdo, a cadeia de 7 nós de outros artistas foi dobrada pelo zig-zig. Agora 3 deles ficam entre a posição 0 e a 1, e 1 entre a posição 1 e a 3.</p>`
+  };
+}
+
+function medidas(p) {
+  const s = S(p.snap);
+  const tot = s.xa + s.xin + s.xdp;
+  const pct = v => Math.max(v / tot * 100, v ? 1.2 : 0);
+  return `
+    <div><dt>Profundidade da clicada</dt><dd>${s.xd}</dd></div>
+    <div><dt>Raiz da árvore</dt><dd style="font-size:15px">${nome(s.root)}</dd></div>
+    <div class="composicao"><dt>Subárvore da clicada</dt>
+      <dd>${nf.format(s.xt)} <small>nós: ${nf.format(s.xa)} antes · ${s.xin} de Saryan · ${nf.format(s.xdp)} depois</small></dd>
+      <div class="barra" aria-hidden="true"><i style="width:${pct(s.xa)}%;background:var(--antes)"></i><i style="width:${pct(s.xin)}%;background:var(--ouro)"></i><i style="width:${pct(s.xdp)}%;background:var(--depois)"></i></div>
+    </div>
+    <div><dt>Rotações até aqui</dt><dd>${p.tipo === 'descida' ? 0 : p.tipo === 'rot' ? p.i + 1 : D.rots.length} <small>de ${D.rots.length}</small></dd></div>
+    <div><dt>Comparações no passo</dt><dd>${{ descida: COMP_DESCIDA, rot: 0, contar: D.comp, pagina: D.menorPath.length, vista: '—' }[p.tipo]}</dd></div>`;
+}
+/* ---------- navegação ---------- */
+const rng = document.getElementById('passo');
+rng.max = passos.length - 1;
+const fasesEl = document.getElementById('fases');
+FASES.forEach((f, i) => {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'fase'; b.textContent = f;
+  b.addEventListener('click', () => ir(passos.findIndex(p => p.fase === i)));
+  fasesEl.append(b);
+});
+
+let atual = -1, anim = 0;
+function ir(i, animar = true) {
+  i = Math.max(0, Math.min(passos.length - 1, i));
+  const p = passos[i];
+  const de = atual >= 0 ? passos[atual].snap : p.snap;
+  atual = i; snapAtual = p.snap;
+  rng.value = i;
+  document.getElementById('contador').textContent = `passo ${i + 1} de ${passos.length}`;
+  document.getElementById('ant').disabled = i === 0;
+  document.getElementById('prox').disabled = i === passos.length - 1;
+  [...fasesEl.children].forEach((b, k) => b.setAttribute('aria-current', String(k === p.fase)));
+
+  const tx = texto(p);
+  document.getElementById('p-titulo').innerHTML = `<span class="num">${FASES[p.fase]}</span>${tx.t}`;
+  document.getElementById('p-texto').innerHTML = tx.h;
+  const tr = document.getElementById('traco');
+  tr.hidden = !tx.traco;
+  if (tx.traco) tr.innerHTML = tx.traco.map(([c, a, b]) => `<li><i class="q" style="background:${cor(c)}"></i><span>${a} <span class="acao">${b}</span></span></li>`).join('');
+  document.getElementById('medidas').innerHTML = medidas(p);
+
+  const L = layouts[p.snap];
+  const marc = marcadosDe(p), vivas = arestasVivas(p);
+  for (const [id, m] of marcas) m.setAttribute('stroke-opacity', p.tipo === 'pagina' && info.get(id).c === 0 && !D.page.includes(id) ? 0.3 : 1);
+  cancelAnimationFrame(anim);
+  const origem = layouts[de].pos;
+  gRec.replaceChildren(); gAneis.replaceChildren(); gRot.replaceChildren(); gGuias.replaceChildren();
+  const fim = () => { posAtual = L.pos; desenharNos(L.pos); desenharArestas(L.pos, L.arestas, vivas); desenharRec(L); destacar(L, marc); };
+  if (!animar || reduzir || de === p.snap) return fim();
+  const t0 = performance.now(), dur = 520;
+  const passo = now => {
+    const t = Math.min(1, (now - t0) / dur), e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    const pos = new Map();
+    for (const [id, q] of L.pos) { const o = origem.get(id); pos.set(id, { x: q.x, y: o.y + (q.y - o.y) * e }); }
+    desenharNos(pos); desenharArestas(pos, L.arestas, vivas);
+    if (t < 1) anim = requestAnimationFrame(passo); else fim();
+  };
+  anim = requestAnimationFrame(passo);
+}
+
+let timer = 0;
+const tocar = document.getElementById('tocar');
+function parar() { clearInterval(timer); timer = 0; tocar.textContent = 'Reproduzir'; }
+tocar.addEventListener('click', () => {
+  if (timer) return parar();
+  if (atual === passos.length - 1) ir(0, false);
+  tocar.textContent = 'Pausar';
+  timer = setInterval(() => { if (atual >= passos.length - 1) return parar(); ir(atual + 1); }, 1500);
+});
+document.getElementById('ant').addEventListener('click', () => { parar(); ir(atual - 1); });
+document.getElementById('prox').addEventListener('click', () => { parar(); ir(atual + 1); });
+rng.addEventListener('input', () => { parar(); ir(+rng.value); });
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'ArrowRight') { parar(); ir(atual + 1); }
+  if (e.key === 'ArrowLeft') { parar(); ir(atual - 1); }
+});
+addEventListener('scroll', esconderDica, { passive: true });
+ir(0, false);
+
+/* ---------- vistas: antes e depois ---------- */
+function paisDe(snap) {
+  const pai = new Map();
+  for (const [id, k] of Object.entries(D.snaps[snap].k)) {
+    if (k[0] >= 0) pai.set(k[0], +id);
+    if (k[1] >= 0) pai.set(k[1], +id);
+  }
+  return pai;
+}
+function escondidos(vista, snap) {
+  const pai = paisDe(snap);
+  return vista.map((v, i) => {
+    if (!v || i === 0) return [];
+    const alvoId = vista[(i - 1) / 2 | 0].id, h = [];
+    for (let a = pai.get(v.id); a !== undefined && a !== alvoId; a = pai.get(a)) h.push(a);
+    return h;
+  });
+}
+const VW = 760, VH = 300;
+const vpos = i => { const L = Math.floor(Math.log2(i + 1)), j = i - (2 ** L - 1); return { x: (j + 0.5) * VW / 2 ** L, y: 34 + L * 78 }; };
+function desenharVista(svgId, vista, hid) {
+  const vs = document.getElementById(svgId);
+  vs.setAttribute('viewBox', `0 0 ${VW} ${VH}`);
+  const gL = el('g', {}, vs), gC = el('g', {}, vs), gN = el('g', {}, vs);
+  vista.forEach((v, i) => {
+    if (i === 0 || !v) return;
+    const a = vpos(i), b = vpos((i - 1) / 2 | 0);
+    el('line', { x1: b.x, y1: b.y + 13, x2: a.x, y2: a.y - 13, class: 'v-liga' + (hid[i].length ? ' oculta' : '') }, gL);
+    if (hid[i].length) {
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      el('rect', { x: mx - 50, y: my - 10, width: 100, height: 20, rx: 2, class: 'v-chip' }, gC);
+      const t = el('text', { x: mx, y: my + 4, class: 'v-chip-t' }, gC);
+      t.textContent = `${hid[i].length} ${hid[i].length > 1 ? 'nós escondidos' : 'nó escondido'}`;
+    }
+  });
+  vista.forEach((v, i) => {
+    const p = vpos(i);
+    if (!v) {
+      el('circle', { cx: p.x, cy: p.y, r: 11, class: 'v-vazio' }, gN);
+      const t = el('text', { x: p.x, y: p.y + 27, class: 'v-id', style: 'fill:var(--cinza-fraco)' }, gN); t.textContent = 'null';
+      return;
+    }
+    if (v.id === X) el('circle', { cx: p.x, cy: p.y, r: 17, class: 'v-foco' }, gN);
+    el('circle', { cx: p.x, cy: p.y, r: 12, class: 'v-no' }, gN);
+    const pp = el('text', { x: p.x, y: p.y + 3.5, class: 'v-d' }, gN); pp.textContent = i;
+    const t = el('text', { x: p.x, y: p.y + 30, class: 'v-id' }, gN); t.textContent = `#${v.id}`;
+    if (i >= 7 && v.d > 0) {
+      const d = el('text', { x: p.x, y: p.y + 43, class: 'v-id', style: 'fill:var(--ouro)' }, gN); d.textContent = `+${v.d}`;
+    }
+  });
+}
+const hidAntes = escondidos(D.vistaAntes, 0);
+desenharVista('vista-antes', D.vistaAntes, hidAntes);
+desenharVista('vista-depois', D.vista, D.vista.map(v => v ? v.hid : []));
+const nomeOculto = h => cap(info.get(h).a) + (info.get(h).g !== 'Post Impressionism' ? ` (${info.get(h).g})` : '');
+const linhas = (vista, hid, rot) => vista.map((v, i) => v && hid[i].length
+  ? `<p><b>${rot}, entre a posição ${(i - 1) / 2 | 0} e a ${i}</b> (#${vista[(i - 1) / 2 | 0].id} → #${v.id}): ${hid[i].map(nomeOculto).join(', ')}.</p>` : '').join('');
+document.getElementById('ocultos').innerHTML = linhas(D.vistaAntes, hidAntes, 'Antes') + linhas(D.vista, D.vista.map(v => v ? v.hid : []), 'Depois');
+})();
+</script></body>
+</html>
