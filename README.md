@@ -284,7 +284,20 @@ cd engine
 
 ## Processo de desenvolvimento
 
-O projeto foi planejado pelos autores: a escolha das duas estruturas, a navegação em três níveis, as modificações nos algoritmos e o desenho do benchmark saíram de discussões do grupo. A implementação em C das estruturas de dados (`TabelaOrd`, `ArvoreAfunilada` e o restante da engine) foi escrita e documentada manualmente pelos autores. Ferramentas de IA auxiliaram apenas na configuração do projeto Python, isto é, no `pyproject.toml` e no ambiente do `uv`, e na infraestrutura de empacotamento, como o Docker (`Dockerfile` e `docker-compose.yml`).
+1. **Base de dados.** Selecionamos o WikiArt conforme a sugestão feita em sala: um acervo multimídia substancialmente grande, com 80.042 obras.
+2. **Estruturas de dados.** Escolhemos a árvore afunilada e a tabela ordenada porque ambas permitem uma busca mais eficiente do que a linear. Com n = 80.042 itens:
+
+   | Estrutura | Busca | Inserção |
+   |---|---|---|
+   | Busca linear (referência) | O(n), até 80.042 comparações | O(1) |
+   | Tabela ordenada (busca binária) | O(log n), cerca de 16 comparações; O(log n + k) para um intervalo de k itens | O(n), pelo deslocamento da cauda |
+   | Árvore afunilada (splay tree) | O(log n) amortizado; uma operação isolada pode custar O(n) | O(log n) amortizado |
+
+3. **Engine.** Implementamos manualmente, em C, os cabeçalhos e o código-fonte das estruturas, que constituem a engine. Os testes foram implementados com o uso de IA generativa.
+4. **Front-end e integração.** A integração entre o front-end e a engine pela API de sockets POSIX foi decidida para manter a integração em baixo nível.
+5. **Infraestrutura.** A infraestrutura e o Docker foram escritos com o auxílio de IA generativa, assim como a configuração do projeto Python (`pyproject.toml` e uv).
+
+**Principais dificuldades:** pensar nas modificações das estruturas de dados e avaliar, de forma realista, o impacto delas no sistema.
 
 ## Autores
 
