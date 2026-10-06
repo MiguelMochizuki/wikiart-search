@@ -228,6 +228,11 @@ static Catalogo* montar(const Csv* csv, int embaralhar_ordem) {
 		c->ordem_artistas[i] = &c->artistas[i];
 	}
 
+	// MODIFICAÇÃO: ordem de carga embaralhada (semente fixa).
+	//   Clássico: inserir na ordem em que os dados chegam (aqui, ordem das chaves),
+	//   que numa splay tree a transforma numa lista encadeada e, numa tabela
+	//   ordenada, é o caso barato. Nosso: embaralha, para a árvore já começar
+	//   equilibrada; custa tempo de carga (ver "carga ordenada" no benchmark).
 	if (embaralhar_ordem) {
 		uint32_t estado = SEMENTE_CARGA;
 		embaralhar(c->ordem_generos,  c->n_generos,  &estado);

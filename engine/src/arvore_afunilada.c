@@ -25,6 +25,10 @@ typedef struct no_t {
 	struct no_t* esq;
 	struct no_t* dir;
 	struct no_t* pai;
+	// MODIFICAÇÃO: o nó guarda o tamanho da sua subárvore.
+	//   Clássico: o nó da splay tree tem só item, filhos e pai.
+	//   Nosso: o campo `tam` permite contar um intervalo e achar o k-ésimo
+	//   item em O(altura), sem percorrê-lo (base da busca paginada).
 	int tam;   /* nós da subárvore, ele incluso */
 } No;
 
@@ -88,6 +92,10 @@ static int situar(const No* u, Comparador cmp, const void* chave,
  *
  * Retorna No*: o nó encontrado, ou NULL se o intervalo não tem ninguém
  */
+// MODIFICAÇÃO: a descida procura um intervalo, não uma chave exata.
+// Clássico: desce comparando a chave e pára no nó de chave igual.
+// Nosso: o comparador é item x chave parcial (<0, 0, >0); pára no primeiro
+// nó DENTRO do intervalo, que é o mais alto dele, e é esse que será afunilado.
 static No* descer(No* u, Comparador cmp, const void* chave, long* comp,
 		  No** ultimo_out) {
 	No* ultimo = NULL;
@@ -116,6 +124,9 @@ static No* descer(No* u, Comparador cmp, const void* chave, long* comp,
  *
  * Retorna No*: o menor nó do intervalo abaixo de x (ou o próprio x)
  */
+// MODIFICAÇÃO: limite inferior dentro da subárvore de x (início do intervalo).
+// Clássico: a busca termina ao achar a chave. Nosso: continua à esquerda atrás
+// do menor item que ainda casa, para coletar o intervalo a partir do começo.
 static No* menor_do_intervalo(No* x, Comparador cmp, const void* chave,
 			      long* comp) {
 	No* menor = x;
@@ -167,6 +178,9 @@ static No* sucessor(No* u) {
  *
  * Retorna int: nós do intervalo na subárvore de x, incluindo x
  */
+// MODIFICAÇÃO (nova operação, sobre o campo `tam`): conta os nós do intervalo.
+// Clássico: contar exigiria percorrer os k nós em O(k). Nosso: duas descidas
+// pelas bordas somando os tamanhos das subárvores inteiras, em O(altura).
 static int contar_intervalo(const No* x, Comparador cmp, const void* chave,
 			    long* comp) {
 	int n = 1;
@@ -197,6 +211,9 @@ static int contar_intervalo(const No* x, Comparador cmp, const void* chave,
  *
  * Retorna int: quantos nós vêm antes de u
  */
+// MODIFICAÇÃO (nova operação, sobre o campo `tam`): posição em ordem de um nó.
+// Clássico: não existe; só se descobre andando a árvore em ordem, em O(n).
+// Nosso: soma os tamanhos das subárvores à esquerda no caminho até a raiz.
 static int posto(const No* u) {
 	int r = tam(u->esq);
 	while (u->pai) {
@@ -214,6 +231,9 @@ static int posto(const No* u) {
  *
  * Retorna No*: o nó da posição r
  */
+// MODIFICAÇÃO (nova operação, sobre o campo `tam`): o nó da posição r em ordem.
+// Clássico: andar r sucessores a partir do menor, em O(r). Nosso: descida
+// guiada pelos tamanhos, em O(altura), sem tocar nos itens anteriores.
 static No* selecionar(No* raiz, int r) {
 	No* u = raiz;
 	for (;;) {
@@ -263,6 +283,9 @@ static void rotacionar(ArvoreAfunilada* a, No* x) {
 	}
 
 	/* Só p e x mudaram de subárvore: p primeiro, que agora é filho de x. */
+	// MODIFICAÇÃO: a rotação conserva o campo `tam`.
+	//   Clássico: a rotação só religa ponteiros.
+	//   Nosso: recalcula o tamanho dos dois nós que mudam de lugar (p, depois x).
 	p->tam = 1 + tam(p->esq) + tam(p->dir);
 	x->tam = 1 + tam(x->esq) + tam(x->dir);
 }
@@ -280,6 +303,10 @@ static void rotacionar(ArvoreAfunilada* a, No* x) {
  *
  * Retorna long: número de rotações feitas
  */
+// MODIFICAÇÃO (de implementação): afunilamento ascendente, sem recursão.
+// Clássico (como demonstrado em aula): versão recursiva descendente. Nosso:
+// a variante ascendente da aula, iterativa, com ponteiros para o pai; a árvore
+// pode ter profundidade n (virar lista) e a recursão estouraria a pilha.
 static long afunilar(ArvoreAfunilada* a, No* x) {
 	long rotacoes = 0;
 
@@ -376,6 +403,9 @@ void arvore_afunilada_inserir(ArvoreAfunilada* a, const void* item) {
 	int pela_esq = 0;
 	while (u) {
 		pai = u;
+		// MODIFICAÇÃO: a inserção atualiza o tamanho de cada nó do caminho.
+		//   Clássico: só desce, pendura a folha e afunila.
+		//   Nosso: incrementa `tam` no caminho, pois o nó novo vai parar abaixo.
 		u->tam++;  /* o nó novo vai parar na subárvore de u */
 		pela_esq = a->cmp_itens(u->item, item) > 0;
 		u = pela_esq ? u->esq : u->dir;
@@ -429,6 +459,10 @@ const void* arvore_afunilada_raiz(const ArvoreAfunilada* a) {
  *
  * Retorna Resultado*: itens encontrados, em ordem, com as métricas
  */
+// MODIFICAÇÃO: busca de intervalo com afunilamento.
+// Clássico: busca a chave exata e afunila o nó achado (ou o último visitado).
+// Nosso: afunila o nó mais alto do intervalo; todo o intervalo fica sob a raiz
+// e é coletado de sucessor em sucessor, com um único afunilamento.
 Resultado* arvore_afunilada_buscar(ArvoreAfunilada* a, Comparador cmp,
 				   const void* chave) {
 	Resultado* r = resultado_criar(cmp ? 16 : a->n);
@@ -482,6 +516,10 @@ Resultado* arvore_afunilada_buscar(ArvoreAfunilada* a, Comparador cmp,
  *
  * Retorna Resultado*: a página, em ordem, com o total do intervalo
  */
+// MODIFICAÇÃO: busca paginada (offset, limite) sobre o intervalo.
+// Clássico: coleta os k itens do intervalo, em O(log n + k), e o chamador
+// descarta o que não quer. Nosso: com `tam`, acha o total e o nó de partida da
+// página por seleção e anda só `limite` sucessores: O(log n + limite).
 Resultado* arvore_afunilada_buscar_pagina(ArvoreAfunilada* a, Comparador cmp,
 					  const void* chave, int offset,
 					  int limite) {
@@ -567,6 +605,7 @@ int arvore_afunilada_vista(const ArvoreAfunilada* a, Comparador cmp,
 	for (int i = 0; i < n_pos; i++) {
 		if (!nos[i]) continue;
 		vista[i].item = nos[i]->item;
+		// MODIFICAÇÃO: descendentes vêm do campo `tam`, sem percorrer o intervalo.
 		vista[i].descendentes =
 			contar_intervalo(nos[i], cmp, chave, NULL) - 1;
 	}

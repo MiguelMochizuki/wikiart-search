@@ -33,6 +33,11 @@ struct indice_t {
  *
  * Retorna int: <0 antes do intervalo, 0 dentro, >0 depois
  */
+// MODIFICAÇÃO: comparação com CHAVE PARCIAL, base da busca de intervalo.
+// Clássico: o comparador diz se o item é menor, igual ou maior que uma chave
+// completa. Nosso: campos em aberto da Chave casam com qualquer valor, então o
+// resultado 0 vale para um bloco inteiro (todos os artistas de um gênero, todas
+// as obras de um artista) e as duas estruturas recortam um intervalo contíguo.
 static int cmp_campos(const char* genero, const char* artista, int id,
 		      const Chave* k) {
 	if (!k->genero) return 0;

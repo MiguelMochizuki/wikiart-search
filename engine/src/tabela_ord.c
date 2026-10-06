@@ -57,6 +57,10 @@ static double agora_ms(void) {
  *
  * Retorna int: índice encontrado (0 a n)
  */
+// MODIFICAÇÃO: busca binária de LIMITE INFERIOR, para intervalo e repetidos.
+// Clássico: pára ao achar uma chave igual e devolve aquele índice (qualquer
+// um, se há repetidos). Nosso: não pára; devolve o primeiro índice que não vem
+// antes da chave, que é o começo do intervalo.
 static int limite_inferior(const TabelaOrd* t, Comparador cmp,
 			   const void* chave, long* comp_out) {
 	int inf = 0;
@@ -87,6 +91,9 @@ static int limite_inferior(const TabelaOrd* t, Comparador cmp,
  *
  * Retorna int: índice encontrado (0 a n)
  */
+// MODIFICAÇÃO (variante nova): limite superior, o fim do intervalo.
+// Clássico: não há. Nosso: mesma busca binária, com o item dentro do intervalo
+// também à esquerda; com os dois limites o tamanho do intervalo sai em O(log n).
 static int limite_superior(const TabelaOrd* t, Comparador cmp,
 			   const void* chave, long* comp_out) {
 	int inf = 0;
@@ -223,6 +230,9 @@ const void* tabela_ord_item(const TabelaOrd* t, int indice) {
  *
  * Retorna Resultado*: resultado com os ponteiros encontrados
  */
+// MODIFICAÇÃO: busca de intervalo contíguo.
+// Clássico: a busca binária devolve um único item. Nosso: acha o começo do
+// intervalo e coleta enquanto o comparador der zero, O(log n + k).
 Resultado* tabela_ord_buscar(const TabelaOrd* t, Comparador cmp,
 			     const void* chave) {
 	Resultado* r = resultado_criar(cmp ? 16 : t->n);
@@ -267,6 +277,9 @@ Resultado* tabela_ord_buscar(const TabelaOrd* t, Comparador cmp,
  *
  * Retorna Resultado*: a página, com o total do intervalo
  */
+// MODIFICAÇÃO: busca paginada (offset, limite).
+// Clássico: coletar o intervalo inteiro e cortar depois. Nosso: dois limites
+// por busca binária e uma fatia do array, O(log n + limite).
 Resultado* tabela_ord_buscar_pagina(const TabelaOrd* t, Comparador cmp,
 				    const void* chave, int offset,
 				    int limite) {
