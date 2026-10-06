@@ -1,0 +1,319 @@
+\documentclass[12pt,a4paper,oneside]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[provide=*,brazilian]{babel}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathptmx}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{indentfirst}
+\usepackage{url}
+\usepackage{tocloft}
+\usepackage{titlesec}
+\usepackage{microtype}
+\usepackage{ragged2e}
+\usepackage{csquotes}
+\usepackage{xcolor}
+\usepackage[%
+    colorlinks=false,
+    pdfborder={0 0 1},
+    linkbordercolor=red,
+    citebordercolor=red,
+    urlbordercolor=red,
+    filebordercolor=red,
+    bookmarks=true,
+    bookmarksopen=true,
+    pdfpagemode=UseOutlines,
+    pdftitle={WikiArt Search: Aplicação e Processo de Desenvolvimento},
+    pdfauthor={Miguel Mochizuki Silva; Arthur Gomes; Leudo Neto}
+]{hyperref}
+
+\usepackage[backend=biber,style=abnt, citecounter=true, uniquename=false, backrefstyle=three, extrayear, noslsn, repeatfields=true, language=brazil, hyperref=true]{biblatex}
+
+\DefineBibliographyExtras{brazil}{%
+  \DeclareBibstringSetFormat{latin}{\mkbibemph{#1}}%
+}
+
+\DeclareFieldFormat{url}{\bibstring{urlfrom}\addcolon\addspace\url{#1}}
+\renewcommand*{\mkbibnamefamily}[1]{#1}
+
+\addbibresource{referencias.bib}
+
+\geometry{
+    a4paper,
+    top=3cm,
+    bottom=2cm,
+    left=3cm,
+    right=2cm,
+    headheight=1.5cm,
+    headsep=0.5cm,
+    footskip=1.5cm
+}
+
+\onehalfspacing
+\setlength{\parindent}{1.25cm}
+\setlength{\parskip}{0pt}
+
+\titleformat{\section}
+  {\newpage\normalfont\bfseries\MakeUppercase}{\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\bfseries}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}
+  {\normalfont\bfseries}{\thesubsubsection}{1em}{}
+
+\newcommand{\tituloSemNumero}[1]{%
+  \begingroup
+  \titleformat{\section}{\normalfont\bfseries\MakeUppercase\centering}{}{0pt}{}
+  \section*{#1}
+  \endgroup
+}
+
+\setlist[itemize]{
+    label=\textbullet,
+    leftmargin=1.25cm,
+    itemsep=0pt,
+    topsep=0pt,
+}
+\setlist[enumerate,1]{
+    label=\arabic*),
+    leftmargin=1.25cm,
+    topsep=0pt,
+}
+\setlist[enumerate,2]{
+    label=\alph*),
+    leftmargin=2.5cm
+}
+\setlist[enumerate,3]{
+    label=\roman*),
+    leftmargin=3.5cm
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+
+\renewcommand{\contentsname}{SUMÁRIO}
+\renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}}
+\renewcommand{\cftsubsecleader}{\cftdotfill{\cftdotsep}}
+\renewcommand{\cftsubsubsecleader}{\cftdotfill{\cftdotsep}}
+\renewcommand{\cftsecfont}{\normalfont}
+\renewcommand{\cftsubsecfont}{\normalfont}
+\renewcommand{\cftsubsubsecfont}{\normalfont}
+\renewcommand{\cftsecpagefont}{\normalfont}
+\renewcommand{\cftsubsecpagefont}{\normalfont}
+\renewcommand{\cftsubsubsecpagefont}{\normalfont}
+\renewcommand{\cftsecindent}{0pt}
+\renewcommand{\cftsubsecindent}{0pt}
+\renewcommand{\cftsubsubsecindent}{0pt}
+\setlength{\cftbeforesecskip}{0pt}
+\setlength{\cftbeforesubsecskip}{0pt}
+\setlength{\cftbeforesubsubsecskip}{0pt}
+
+\makeatletter
+\let\oldtableofcontents\tableofcontents
+\renewcommand{\tableofcontents}{%
+    \begingroup
+    \titleformat{\section}
+        {\normalfont\bfseries\MakeUppercase\centering}
+        {}{0pt}{}
+    \section*{\contentsname}
+    \thispagestyle{empty}
+    \begin{singlespace}
+    \@starttoc{toc}
+    \end{singlespace}
+    \endgroup
+}
+\makeatother
+
+\newcommand{\adicionarAoTOC}[1]{%
+    \addcontentsline{toc}{section}{\MakeUppercase{#1}}%
+}
+
+\begin{document}
+
+% ============================================================
+% CAPA
+% ============================================================
+\begin{titlepage}
+\centering
+
+\textbf{\MakeUppercase{Universidade Federal da Paraíba}}\\
+\textbf{\MakeUppercase{Centro de Ciências Humanas, Letras e Artes}}\\
+\textbf{\MakeUppercase{Coordenação do Curso de Letras Português}}
+
+\vspace{3\baselineskip}
+
+\textbf{MIGUEL MOCHIZUKI SILVA}\\
+\textbf{ARTHUR GOMES}\\
+\textbf{LEUDO NETO}
+
+\vspace{9\baselineskip}
+
+\textbf{\MakeUppercase{WikiArt Search:}}\\
+Aplicação e Processo de Desenvolvimento
+
+\vspace{12\baselineskip}
+
+\vfill
+
+João Pessoa\\
+2026
+
+\end{titlepage}
+
+% ============================================================
+% FOLHA DE ROSTO
+% ============================================================
+\begin{titlepage}
+\thispagestyle{empty}
+\centering
+
+\textbf{MIGUEL MOCHIZUKI SILVA}\\
+\textbf{ARTHUR GOMES}\\
+\textbf{LEUDO NETO}
+
+\vspace{13\baselineskip}
+
+\textbf{\MakeUppercase{WikiArt Search:}}\\
+Aplicação e Processo de Desenvolvimento
+
+\vspace{6\baselineskip}
+
+\begin{flushright}
+\begin{minipage}{7.5cm}
+\setstretch{1.0}
+\footnotesize
+Trabalho apresentado como requisito parcial de avaliação da disciplina de Estruturas de Dados e Algoritmos II, do Curso de Licenciatura em Letras -- Língua Portuguesa da Universidade Federal da Paraíba.\\[6pt]
+Orientador: Prof. Dr. Rinaldo de Fernandes
+\end{minipage}
+\end{flushright}
+
+\vfill
+
+João Pessoa\\
+2026
+
+\end{titlepage}
+
+% ============================================================
+% RESUMO
+% ============================================================
+\clearpage
+\thispagestyle{empty}
+\begin{center}
+  {\normalfont\bfseries\MakeUppercase{Resumo}}
+  \bigskip
+\end{center}
+
+\noindent O presente trabalho descreve a aplicação WikiArt Search, um sistema de busca e navegação sobre os metadados do WikiArt, e o seu processo de desenvolvimento. A aplicação é uma engine em C11 que indexa 80.042 obras em duas estruturas de dados (uma tabela ordenada com busca binária e uma árvore afunilada, ou splay tree), servidas por um servidor HTTP e uma interface web que mostra a estrutura trabalhando. A navegação ocorre em três níveis: estilo, artista e obras. Foram implementadas modificações nos algoritmos clássicos para atender à aplicação, como busca de intervalo por chave parcial, busca paginada e ordem de carga embaralhada. O processo de desenvolvimento envolveu a escolha do acervo, a implementação manual das estruturas em C, a integração com o front-end via API de sockets POSIX e a infraestrutura com Docker. Os resultados do benchmark sobre 80.042 obras mostram que a tabela ordenada vence em tempo de resposta em todos os cenários medidos, enquanto a árvore afunilada se adapta ao uso repetido e é mais rápida na inserção com ordem de chegada aleatória. O código-fonte está disponível em \url{https://github.com/MiguelMochizuki/wikiart-search}.
+
+\bigskip
+
+\noindent \textbf{Palavras-chave}: WikiArt; estruturas de dados; tabela ordenada; árvore afunilada; benchmark.
+
+% ============================================================
+% ABSTRACT
+% ============================================================
+\clearpage
+\thispagestyle{empty}
+\begin{center}
+  {\normalfont\bfseries\MakeUppercase{Abstract}}
+  \bigskip
+\end{center}
+
+\noindent This work describes the WikiArt Search application, a search and navigation system over WikiArt metadata, and its development process. The application is a C11 engine that indexes 80,042 artworks in two data structures (an ordered indexed list with binary search and a splay tree), served by an HTTP server and a web interface that shows the structure working. Navigation occurs on three levels: style, artist, and artworks. Modifications to the classical algorithms were implemented to meet the application, such as range search by partial key, paginated search, and shuffled load order. The development process involved choosing the collection, manually implementing the structures in C, integrating with the front-end via a POSIX sockets API, and infrastructure with Docker. Benchmark results over 80,042 artworks show that the ordered table wins in response time in all measured scenarios, while the splay tree adapts to repeated use and is faster on insertion with random arrival order. The source code is available at \url{https://github.com/MiguelMochizuki/wikiart-search}.
+
+\bigskip
+
+\noindent \textbf{Keywords}: WikiArt; data structures; ordered table; splay tree; benchmark.
+
+% ============================================================
+% SUMÁRIO
+% ============================================================
+\clearpage
+\tableofcontents
+\thispagestyle{empty}
+
+% ============================================================
+% TEXTO
+% ============================================================
+\clearpage
+\pagestyle{fancy}
+
+\section{\textbf{INTRODUÇÃO}}
+
+O WikiArt Search é um sistema de busca e navegação sobre os metadados do WikiArt, disponível em \url{https://github.com/MiguelMochizuki/wikiart-search}. Trata-se de uma engine em C11 que indexa 80.042 obras em duas estruturas de dados, um servidor HTTP e uma interface web que mostra a estrutura trabalhando. O acervo compreende 80.042 obras, 1.119 artistas e 27 estilos, navegado em três níveis: estilo, artista e obras.
+
+A arquitetura organiza-se em três camadas: o navegador (HTML, CSS e JavaScript) comunica-se com um servidor HTTP em C, que utiliza uma engine de busca também em C. A engine mantém duas estruturas de dados, uma linear e uma hierárquica: uma lista indexada ordenada (\texttt{TabelaOrd}, com busca binária) e uma árvore afunilada (\texttt{ArvoreAfunilada}, uma splay tree). Uma interface comum (\texttt{Buscador}, uma vtable) liga as duas estruturas ao servidor e ao benchmark, de modo que uma nova estrutura entra no sistema com uma linha de código.
+
+\section{\textbf{ESTRUTURAS DE DADOS}}
+
+Cada estrutura mantém três instâncias, uma por nível da navegação. Ambas são genéricas: recebem na criação a ordem entre itens e, a cada busca, um comparador que recorta um intervalo contíguo dessa ordem. O nível 1 corresponde aos gêneros (27 estilos), ordenados por nome. O nível 2 corresponde aos artistas (2.082 pares gênero-artista), ordenados por (gênero, artista). O nível 3 corresponde às obras (80.042 obras), ordenadas por (gênero, artista, id).
+
+A \texttt{TabelaOrd} é um array ordenado. A busca é uma busca binária de limite inferior até o começo do intervalo, seguida da coleta enquanto o comparador der zero. Inserir no meio obriga a deslocar a cauda. A \texttt{ArvoreAfunilada} é uma árvore binária de busca sem balanceamento explícito. Todo acesso leva o nó acessado até a raiz por rotações (zig, zig-zig e zig-zag). O que foi usado há pouco fica perto do topo, e o custo amortizado de cada operação é O(log n).
+
+\section{\textbf{MODIFICAÇÕES NOS ALGORITMOS CLÁSSICOS}}
+
+Os algoritmos clássicos buscam uma chave exata. A aplicação precisa de blocos inteiros, em páginas, e sem que a árvore vire uma lista. As principais modificações foram:
+
+\begin{itemize}
+    \item Busca de intervalo por chave parcial: o comparador devolve menor que zero, zero ou maior que zero contra uma chave parcial, e um bloco inteiro sai numa busca.
+    \item Tamanho da subárvore em cada nó: as rotações mantêm \texttt{tam = 1 + tam(esq) + tam(dir)}, permitindo calcular o total do intervalo e a posição do primeiro item de uma página em O(altura).
+    \item Busca paginada: devolve só uma fatia do intervalo, com o nó de partida obtido por seleção na árvore.
+    \item Afunilamento ascendente sem recursão: ponteiros para o pai permitem afunilar, percorrer em ordem e liberar sem pilha.
+    \item Ordem de carga embaralhada: evita que a árvore vire uma lista encadeada quando o CSV vem agrupado por artista.
+\end{itemize}
+
+\section{\textbf{RESULTADOS}}
+
+O benchmark foi realizado sobre 80.042 obras, com 10.000 buscas por operação, em três cenários: consultas aleatórias, consultas com localidade e carga clássica (sem embaralhamento).
+
+Nas consultas aleatórias, a tabela ordenada apresenta tempo médio de 0,09 µs para busca de gênero, 1,21 µs para busca de artistas de um gênero, 4,53 µs para busca de todas as obras de um artista e 0,84 µs para página de 30 obras. A árvore afunilada apresenta, respectivamente, 0,15 µs, 2,17 µs, 11,81 µs e 2,12 µs. Na busca das obras de um artista, as duas estruturas fazem quase o mesmo número de comparações (270,00 na tabela e 277,40 na árvore), mas o tempo difere: 4,53 µs na tabela contra 11,81 µs na árvore, ou seja, a tabela é 2,6 vezes mais rápida. A diferença se explica pela localidade de memória.
+
+Pedir só 30 obras, em vez de coletar o intervalo inteiro, faz a árvore cair de 11,81 para 2,12 µs (5,6 vezes) e a tabela de 4,53 para 0,84 µs (5,4 vezes). Na comparação entre carga embaralhada e carga ordenada, a carga ordenada é muito mais barata nas duas estruturas (32 vezes na árvore, 13 vezes na tabela), mas o embaralhamento evita que a árvore comece como uma lista encadeada.
+
+Nas consultas com localidade, a árvore se adapta: as rotações por busca caem a um terço (10,68 para 3,47) e a busca de obras fica 2,1 vezes mais rápida (11,81 para 5,75 µs). A tabela também melhora (4,53 para 3,02 µs) e continua mais rápida. Na inserção com carga embaralhada, a árvore carrega os três níveis em 94 ms contra 231 ms da tabela, 2,5 vezes mais rápida.
+
+Em resumo, a tabela vence em tempo de resposta em todos os cenários medidos, só a árvore se reorganiza com o uso, e na inserção com ordem de chegada aleatória a árvore vence.
+
+\section{\textbf{INTERFACE WEB}}
+
+A navegação é em três níveis: estilo, artista e obras. O seletor no topo troca a estrutura e refaz a consulta da tela aberta, e toda tela mostra as métricas da busca (estrutura, algoritmo, tempo, comparações e rotações). Na tabela ordenada, cada tela é uma grade, com estilos e artistas mostrados pela pintura de capa. Na árvore afunilada, a tela desenha a vista dos quatro primeiros níveis da árvore (1 + 2 + 4 + 8 nós). Clicar num nó o afunila até a raiz, e a engine devolve a árvore já reorganizada.
+
+A API expõe as rotas \texttt{GET /api/generos}, \texttt{GET /api/artistas}, \texttt{GET /api/busca}, \texttt{GET /api/comparar} e \texttt{GET /api/status}.
+
+O parâmetro \texttt{ed} é \texttt{tabela\_ord} (padrão) ou \texttt{arvore\_afunilada}. A API só atende navegadores vindos de origens autorizadas, definidas em \texttt{WIKIART\_ORIGENS}.
+
+\section{\textbf{PROCESSO DE DESENVOLVIMENTO}}
+
+O desenvolvimento seguiu cinco etapas. Na base de dados, selecionamos o WikiArt conforme a sugestão feita em sala, um acervo multimídia grande, com 80.042 obras. Nas estruturas de dados, escolhemos a árvore afunilada e a tabela ordenada porque ambas permitem uma busca mais eficiente do que a linear.
+
+Na engine, implementamos manualmente, em C, os cabeçalhos e o código-fonte das estruturas. Os testes foram implementados com o uso de IA generativa. No front-end, a integração com a engine pela API de sockets POSIX foi decidida para manter a integração em baixo nível. Na infraestrutura, o Docker e a configuração do projeto Python foram escritos com o auxílio de IA generativa.
+
+As principais dificuldades foram pensar nas modificações das estruturas de dados e avaliar, de forma realista, o impacto delas no sistema.
+
+\section{\textbf{CONSIDERAÇÕES FINAIS}}
+
+O WikiArt Search compara duas estruturas de dados clássicas sobre um acervo de 80.042 obras. A tabela ordenada vence em tempo de resposta em todos os cenários medidos, sobretudo por localidade de memória. A árvore afunilada se adapta ao uso repetido e é mais rápida na inserção com ordem de chegada aleatória. A interface web permite comparar, na mesma busca, as comparações, as rotações e o tempo de cada estrutura.
+
+% ============================================================
+% REFERÊNCIAS
+% ============================================================
+\clearpage
+\phantomsection
+\addcontentsline{toc}{section}{\textbf{REFERÊNCIAS}}
+
+\begin{thebibliography}{1}
+
+\bibitem{WIKIARTSEARCH2026}
+SILVA, Miguel Mochizuki; GOMES, Arthur; NETO, Leudo. \textbf{WikiArt Search}: sistema de busca sobre metadados do WikiArt com engine em C, benchmark comparativo de três estruturas de dados e interface web. 2026. Disponível em: \url{https://github.com/MiguelMochizuki/wikiart-search}. Acesso em: 6 out. 2026.
+
+\end{thebibliography}
+
+\end{document}
