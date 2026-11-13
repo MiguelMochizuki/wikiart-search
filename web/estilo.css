@@ -221,8 +221,7 @@ img { max-width: 100%; }
   font-family: var(--capitular);
   font-size: 11.5px;
   font-weight: 400;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
   padding: 5px 9px;
   cursor: pointer;
   max-width: 100%;
@@ -364,7 +363,6 @@ main {
   font-family: var(--capitular);
   font-size: 10.5px;
   letter-spacing: 0.3em;
-  text-transform: uppercase;
   color: var(--cinza-fraco);
 }
 
@@ -500,8 +498,7 @@ main {
   gap: 16px;
   font-family: var(--capitular);
   font-size: 10.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--cinza-fraco);
 }
 .cartao-numeros b {
@@ -599,8 +596,7 @@ main {
   margin: 0;
   font-family: var(--capitular);
   font-size: 9.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.03em;
   color: var(--cinza-fraco);
 }
 .metrica dd {
@@ -632,8 +628,7 @@ main {
   padding: 10px 16px;
   font-family: var(--capitular);
   font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--ouro);
 }
 .ajuda dl { margin: 0; padding: 4px 16px 0; }
@@ -944,8 +939,7 @@ main {
   margin-top: 5px;
   font-family: var(--capitular);
   font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--cinza-fraco);
   font-variant-numeric: tabular-nums;
   overflow: hidden;
@@ -1011,7 +1005,6 @@ main {
   font-family: var(--capitular);
   font-size: 10.5px;
   letter-spacing: 0.3em;
-  text-transform: uppercase;
   color: var(--ouro);
 }
 
@@ -1038,8 +1031,7 @@ main {
   border-bottom: 1px solid var(--ouro);
   font-family: var(--capitular);
   font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  letter-spacing: 0.03em;
   color: var(--ouro-claro);
   transition: letter-spacing 0.25s;
 }
