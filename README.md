@@ -72,25 +72,18 @@ A interface mostra esses cenários na aba **Resultados** (`#/resultados`), desen
 
 ## Interface web
 
-A navegação é em três níveis: **estilo → artista → obras**. O controle de estrutura no topo da tela troca a estrutura e refaz a consulta da tela aberta, e toda tela mostra as métricas da busca (estrutura, algoritmo, tempo, comparações e rotações).
+A navegação é em três níveis: **estilo → artista → obras**. No topo de cada tela, o controle **Estrutura** alterna entre tabela e árvore e refaz a consulta, com uma frase sobre o que cada uma faz. Cada tela mostra as métricas da busca (estrutura, algoritmo, tempo, comparações e, na árvore, rotações) e, logo abaixo, uma frase que liga o número à modificação do algoritmo clássico que o produziu.
 
 - **Tabela ordenada:** cada tela é uma grade, com estilos e artistas mostrados pela pintura de capa. As obras têm rolagem infinita, que pede à engine uma página de 30 por vez.
-- **Árvore afunilada:** a tela desenha a vista dos quatro primeiros níveis da árvore (1 + 2 + 4 + 8 nós). A raiz ocupa a primeira fileira inteira, e cada nó divide a largura do pai com o irmão. Clicar num nó o afunila até a raiz, e a engine devolve a árvore já reorganizada. Clicar na raiz abre o próximo nível ou, nas obras, amplia a pintura. Nos níveis 2 e 3 a vista mostra só o intervalo da tela, e um selo `+N` na última fileira diz quantos itens ficaram abaixo.
+- **Árvore afunilada:** a tela desenha a vista dos quatro primeiros níveis da árvore (1 + 2 + 4 + 8 nós). Clicar num nó o afunila até a raiz, e a engine devolve a árvore já reorganizada. Clicar na raiz abre o próximo nível ou, nas obras, amplia a pintura. Nos níveis 2 e 3 a vista mostra só o intervalo da tela, e um selo `+N` na última fileira diz quantos itens ficaram abaixo.
+- **Comparar as duas estruturas:** disponível nos três níveis, recolhido sob o controle de estrutura. Faz a mesma busca nas duas, duas vezes seguidas, e mostra comparações, rotações e tempo, com frases sobre o que aconteceu (por exemplo, a segunda busca ficar mais barata na árvore porque o item já estava no topo).
+- **Aba Resultados** (`#/resultados`): conta o benchmark em quatro cenários a partir de `results/bench_80k.csv`. O botão "Medir agora na engine" refaz a carga ao vivo com `/api/insercao`.
 
 As árvores guardam o estado entre requisições, e esse estado é do servidor, não do navegador: todos os clientes veem a mesma árvore, com o último acesso de qualquer um na raiz.
 
-### Entendendo as métricas e a escolha da estrutura
+A velocidade percebida ao navegar não muda com a estrutura: as duas respondem em microssegundos, abaixo do tempo da rede e das imagens. A escolha muda a forma da tela, o que acontece com o uso repetido e o custo de carga e inserção, que é o que a aba Resultados mostra.
 
-Sob o painel de métricas de cada tela há o quadro **"O que significam estes números?"**, que explica em linguagem simples estrutura, tempo (sem rede nem imagens), comparações (o esforço que não depende da máquina) e rotações. Na tela de obras, o botão **"Comparar as duas estruturas nesta busca"** faz a mesma busca na tabela e na árvore, duas vezes seguidas, e mostra as comparações, as rotações e o tempo de cada uma, com frases que dizem o que aconteceu (por exemplo, se a segunda busca ficou mais barata na árvore porque o artista já estava no topo).
-
-O que a escolha da estrutura muda para quem navega, sem exagero:
-
-- **Velocidade percebida: nada.** As duas respondem em microssegundos, muito abaixo do tempo da rede e do carregamento das imagens.
-- **A forma da tela:** lista em ordem (tabela) ou hierarquia viva que se reorganiza a cada clique (árvore).
-- **O uso repetido:** a tabela custa o mesmo em toda busca, e a árvore leva o que foi aberto há pouco para perto do topo.
-- **A escala e a manutenção:** cadastrar itens novos desloca a tabela inteira, enquanto a árvore só religa nós; num acervo maior ou que cresce, isso pesa, e é o que o benchmark de inserção mostra.
-
-O tema é um claro-escuro de ateliê: fundo de noite, fios de ouro velho e numerais romanos marcando os três níveis. As fontes (Cinzel, Cormorant Garamond e Jost) vêm do Google Fonts, e sem rede a interface cai nas fontes do sistema. Quem usa `prefers-reduced-motion` não vê as animações.
+O tema é um claro-escuro de ateliê: fundo de noite, fios de ouro velho e numerais romanos nos três níveis. As fontes (Cinzel, Cormorant Garamond e Jost) vêm do Google Fonts, e sem rede a interface cai nas fontes do sistema. Quem usa `prefers-reduced-motion` não vê as animações.
 
 ### API
 
