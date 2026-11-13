@@ -23,8 +23,8 @@
   <link rel="stylesheet" href="estilo.css">
 </head>
 <body>
-  <!-- Pétalas à deriva. Povoadas pelo app.js e desligadas em prefers-reduced-motion. -->
-  <div class="particulas" id="particulas" aria-hidden="true"></div>
+  <!-- Cena: a pintura de capa do contexto, em tela cheia e escurecida. Duas camadas fazem a troca em fade. -->
+  <div class="cena" id="cena" aria-hidden="true"><i></i><i></i></div>
 
   <header class="topo">
     <div class="topo-conteudo">
@@ -39,13 +39,7 @@
       </nav>
 
       <div class="topo-controles">
-        <label class="campo-ed">
-          <span>Estrutura</span>
-          <select id="seletor-ed">
-            <option value="tabela_ord">Tabela ordenada</option>
-            <option value="arvore_afunilada">Árvore afunilada</option>
-          </select>
-        </label>
+        <a class="link-resultados" href="#/resultados">Resultados</a>
         <span class="status" id="status" title="Estado da engine">
           <i class="ponto" data-estado="checando"></i><span id="status-texto">verificando…</span>
         </span>
@@ -83,6 +77,27 @@
   </template>
 
   <main id="palco">
+    <!-- Estrutura e comparação: valem para os três níveis -->
+    <div class="barra-ed" id="barra-ed">
+      <div class="barra-ed-linha">
+        <span class="barra-ed-rotulo">Estrutura</span>
+        <div class="seletor-ed" id="seletor-ed" role="group" aria-label="Estrutura de dados">
+          <button type="button" data-ed="tabela_ord" aria-pressed="true">Tabela ordenada</button>
+          <button type="button" data-ed="arvore_afunilada" aria-pressed="false">Árvore afunilada</button>
+        </div>
+      </div>
+      <p class="ed-resumo" id="ed-resumo"></p>
+      <details class="comparacao" id="comparacao">
+        <summary>Comparar as duas estruturas nesta busca</summary>
+        <p class="comparacao-texto">
+          Faz esta mesma busca nas duas estruturas, duas vezes seguidas, e mostra
+          o esforço de cada uma. A árvore lembra do que foi aberto: se este item já
+          foi visitado há pouco, ela também responde barato na primeira rodada.
+        </p>
+        <button type="button" class="botao-comparar" id="botao-comparar">Comparar agora</button>
+        <div class="comparacao-saida" id="comparacao-saida" aria-live="polite"></div>
+      </details>
+    </div>
     <!-- Nível 1: estilos -->
     <section id="tela-estilos" class="tela" data-ato="I">
       <div class="tela-cabeca">
@@ -127,20 +142,22 @@
 
       <div class="metricas" id="metricas-obras" hidden></div>
 
-      <section class="comparacao" id="comparacao" aria-labelledby="comparacao-titulo">
-        <h3 id="comparacao-titulo">Comparar as duas estruturas nesta busca</h3>
-        <p class="comparacao-texto">
-          Faz esta mesma busca nas duas estruturas, duas vezes seguidas, e mostra
-          o esforço de cada uma. É o que a escolha no topo muda por baixo da tela.
-          A árvore lembra do que foi aberto: se este artista já foi visitado há
-          pouco, ela também responde barato na primeira rodada.
-        </p>
-        <button type="button" class="botao-comparar" id="botao-comparar">Comparar agora</button>
-        <div class="comparacao-saida" id="comparacao-saida" aria-live="polite"></div>
-      </section>
       <div class="grade-obras" id="grade-obras"></div>
       <div class="arvore" id="arvore-obras" data-nivel="obras" aria-label="Árvore de obras" hidden></div>
       <div class="sentinela" id="sentinela"></div>
+    </section>
+
+    <!-- Resultados do benchmark -->
+    <section id="tela-resultados" class="tela" hidden>
+      <div class="tela-cabeca">
+        <div class="cabeca-texto">
+          <p class="ato"><span class="ato-rotulo">Resultados</span></p>
+          <h2>O que cada estrutura melhora</h2>
+          <p class="sub">Benchmark sobre 80.042 obras, 10.000 buscas por operação. Cada estrutura ganha num cenário diferente.</p>
+        </div>
+      </div>
+      <p class="res-legenda"><i data-estrutura="tabela_ord"></i>Tabela ordenada <i data-estrutura="arvore_afunilada"></i>Árvore afunilada</p>
+      <div id="resultados-conteudo"></div>
     </section>
 
     <div class="aviso" id="aviso" hidden></div>
@@ -160,6 +177,7 @@
   <!-- Grão de tela sobre toda a interface: tira o aspecto liso de gradiente puro. -->
   <div class="grao" aria-hidden="true"></div>
 
+  <script src="resultados.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -22,6 +22,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -413,6 +414,58 @@ static void handle_busca(int sock, const ServerContext* ctx, const char* query) 
 			tem_foco ? &k_foco : NULL, genero, a, offset, limite);
 }
 
+/** Relógio monotônico em milissegundos */
+static double agora_ms(void) {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (double) ts.tv_sec * 1000.0 + (double) ts.tv_nsec / 1e6;
+}
+
+/** GET /api/insercao: mede a carga dos três níveis em cada ED, com a ordem
+ * de chegada embaralhada e com a ordenada
+ *
+ * Monta índices descartáveis a partir do CSV, então não altera o catálogo
+ * nem os índices que atendem a navegação. Bloqueia o servidor pelo tempo da
+ * medição (cerca de meio segundo no acervo completo).
+ *
+ * Parâmetros:
+ * int sock: socket do cliente
+ * const ServerContext* ctx: contexto com o CSV
+ */
+static void handle_insercao(int sock, const ServerContext* ctx) {
+	Catalogo* cats[2] = { catalogo_montar(ctx->csv), catalogo_montar_ordenado(ctx->csv) };
+	static const char* const ORDENS[2] = { "embaralhada", "ordenada" };
+	char buf[1024];
+	int n = 0, ok = cats[0] && cats[1];
+
+	if (ok) {
+		n = snprintf(buf, sizeof buf, "{\"itens\":%d,\"cargas\":[",
+			     catalogo_n_generos(cats[0]) + catalogo_n_artistas(cats[0]) +
+			     catalogo_n_obras(cats[0]));
+		for (int o = 0; ok && o < 2; o++) {
+			for (int i = 0; ok && i < N_EDS; i++) {
+				double t0 = agora_ms();
+				Indice* ix = indice_montar(EDS[i], cats[o]);
+				double ms = agora_ms() - t0;
+				if (!ix) { ok = 0; break; }
+				indice_liberar(ix);
+				n += snprintf(buf + n, sizeof buf - (size_t) n,
+					      "%s{\"estrutura\":\"%s\",\"ordem\":\"%s\",\"ms\":%.3f}",
+					      (o || i) ? "," : "", EDS[i]->nome, ORDENS[o], ms);
+			}
+		}
+		n += snprintf(buf + n, sizeof buf - (size_t) n, "]}");
+	}
+	catalogo_liberar(cats[0]);
+	catalogo_liberar(cats[1]);
+
+	if (!ok) {
+		enviar_erro(sock, 500, "Internal Server Error", "Falha ao montar os indices da medicao.");
+		return;
+	}
+	enviar_resposta(sock, 200, "OK", "application/json", buf, (size_t) n);
+}
+
 /** GET /api/comparar?genero=<g>&artista=<a>&offset=&limite=: a mesma busca de obras em todas as EDs */
 static void handle_comparar(int sock, const ServerContext* ctx, const char* query) {
 	char genero[256]  = {0};
@@ -595,6 +648,8 @@ static void processar_requisicao(int sock, const ServerContext* ctx) {
 		handle_busca(sock, ctx, query);
 	} else if (strcmp(uri, "/api/comparar") == 0) {
 		handle_comparar(sock, ctx, query);
+	} else if (strcmp(uri, "/api/insercao") == 0) {
+		handle_insercao(sock, ctx);
 	} else {
 		const char* not_found = "{\"error\":\"Rota nao encontrada\"}";
 		enviar_resposta(sock, 404, "Not Found", "application/json", not_found, strlen(not_found));
@@ -683,6 +738,7 @@ int server_iniciar(const Csv* csv, int porta) {
 	printf("      \"offset\" e \"limite\" (opcionais) paginam as obras; total_encontrados e o intervalo todo\n");
 	printf("      \"foco\" e opcional: acessa um item e, na arvore, o leva a raiz\n");
 	printf("  - GET /api/comparar?genero=<g>&artista=<a>\n");
+	printf("  - GET /api/insercao: mede a carga em cada ED (ordem embaralhada e ordenada)\n");
 	printf("Origens autorizadas (CORS): %s\n", origens_autorizadas);
 	printf("Log de acesso: a URL de cada requisicao, uma por linha\n");
 	printf("======================================================\n\n");
