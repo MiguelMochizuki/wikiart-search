@@ -301,8 +301,9 @@ function abrirNivel(nivel) {
  * Parâmetros:
  * string nivel: chave de NIVEIS
  * foco: chave do item a afunilar (só na árvore), ou undefined
+ * pos: posição do nó clicado na vista (para nomear os passos do afunilamento)
  */
-async function carregar(nivel, foco) {
+async function carregar(nivel, foco, pos) {
 	const cfg = NIVEIS[nivel];
 	const selo = ++estado.selo;
 	estado.carregando = false;
@@ -344,6 +345,10 @@ async function carregar(nivel, foco) {
 	$(cfg.grade).hidden = emArvore;
 	$(cfg.arvore).hidden = !emArvore;
 	if (cfg.filtro) $(cfg.filtro).hidden = emArvore;
+
+	const primeiro = emArvore ? dados.vista[0] && dados.vista[0].item : (dados.resultados || [])[0];
+	definirCena(primeiro && (nivel === 'obras' ? primeiro : primeiro.capa));
+	estado.passo = emArvore && foco !== undefined && pos ? descreverPasso(pos) : null;
 
 	if (emArvore) {
 		estado.lista = [];
@@ -850,6 +855,10 @@ function renderArvore(nivel, dados) {
 	const vista = dados.vista;
 	const niveis = dados.niveis || Math.log2(vista.length + 1);
 
+	/* Posições atuais, para os nós que continuam deslizarem até o novo lugar. */
+	const antes = new Map();
+	caixa.querySelectorAll('.no[data-chave]').forEach((n) => antes.set(n.dataset.chave, n.getBoundingClientRect()));
+
 	caixa.classList.remove('ocupada');
 	caixa.textContent = '';
 
@@ -873,6 +882,12 @@ function renderArvore(nivel, dados) {
 		` à vista. A raiz é o último acesso: clique num nó para afunilá-lo até o topo, `
 		+ `e na raiz para ${NIVEIS[nivel].acao.toLowerCase()}.`
 	);
+	if (estado.passo) {
+		const passo = document.createElement('span');
+		passo.className = 'arvore-passo';
+		passo.textContent = ` Afunilou com ${estado.passo.passos.join(' → ')}: ${plural(estado.passo.rotacoes, 'rotação', 'rotações')}.`;
+		legenda.append(passo);
+	}
 	caixa.append(legenda);
 
 	for (let f = 0; f < niveis; f++) {
@@ -897,6 +912,81 @@ function renderArvore(nivel, dados) {
 		}
 		caixa.append(fileira);
 	}
+	animarArvore(caixa, antes);
+}
+
+/* ==============================
+ * Movimento da árvore e cena
+ * ============================== */
+
+const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)';
+const EASE_IN_OUT = 'cubic-bezier(0.77, 0, 0.175, 1)';
+
+/** Nomeia os passos do afunilamento de um nó da vista, de baixo para cima
+ *
+ * Posição p do heap: o pai é (p-1)>>1 e lados iguais de nó e pai (ambos
+ * ímpares ou ambos pares) formam zig-zig; senão, zig-zag. Sobrando só o
+ * pai da raiz, é um zig.
+ */
+function descreverPasso(pos) {
+	const passos = [];
+	let rotacoes = 0;
+	for (let p = pos; p > 0;) {
+		const pai = (p - 1) >> 1;
+		if (pai === 0) { passos.push('zig'); rotacoes += 1; break; }
+		passos.push(p % 2 === pai % 2 ? 'zig-zig' : 'zig-zag');
+		rotacoes += 2;
+		p = (pai - 1) >> 1;
+	}
+	return { passos, rotacoes };
+}
+
+/** Anima a árvore recém-desenhada
+ *
+ * Nó que já estava na tela desliza (e muda de escala) da posição antiga até a
+ * nova: é a rotação, vista. Nó que entrou aparece em fade. Só transform e
+ * opacity, pela Web Animations API, para não brigar com as transições de hover.
+ */
+function animarArvore(caixa, antes) {
+	if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+	caixa.querySelectorAll('.no').forEach((no) => {
+		const ant = antes.get(no.dataset.chave);
+		if (!ant) {
+			no.animate([{ opacity: 0 }, { opacity: 1 }], { duration: antes.size ? 180 : 260, easing: EASE_OUT });
+			return;
+		}
+		const novo = no.getBoundingClientRect();
+		const dx = ant.left + ant.width / 2 - (novo.left + novo.width / 2);
+		const dy = ant.top + ant.height / 2 - (novo.top + novo.height / 2);
+		const s = ant.width / novo.width;
+		if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(s - 1) < 0.01) return;
+		no.animate(
+			[{ transform: `translate(${dx}px, ${dy}px) scale(${s})` }, { transform: 'none' }],
+			{ duration: 360, easing: EASE_IN_OUT }
+		);
+	});
+}
+
+/* A pintura de capa do contexto, escurecida, como fundo. Duas camadas trocam
+ * em fade; o fundo só muda quando a imagem nova já carregou. */
+let camadaCena = 0;
+let urlCena = null;
+function definirCena(obra) {
+	const url = obra && obra.caminho ? urlImagem(obra.caminho) : null;
+	if (url === urlCena) return;
+	urlCena = url;
+	const camadas = $('cena').children;
+	if (!url) { camadas[camadaCena].classList.remove('visivel'); return; }
+	const img = new Image();
+	img.onload = () => {
+		if (urlCena !== url) return;
+		const proxima = camadas[1 - camadaCena];
+		proxima.style.backgroundImage = `url("${url}")`;
+		proxima.classList.add('visivel');
+		camadas[camadaCena].classList.remove('visivel');
+		camadaCena = 1 - camadaCena;
+	};
+	img.src = url;
 }
 
 /** Um nó da vista
@@ -918,6 +1008,7 @@ function criarNo(nivel, no, pos, ultimaFileira) {
 	b.type = 'button';
 	b.className = raiz ? 'no no-raiz' : 'no';
 	b.style.setProperty('--i', pos);
+	b.dataset.chave = String(NIVEIS[nivel].foco(item));
 
 	const texto = document.createElement('div');
 	texto.className = 'no-texto';
@@ -972,7 +1063,7 @@ function criarNo(nivel, no, pos, ultimaFileira) {
 	} else {
 		b.title = 'Levar ao topo da árvore';
 		b.setAttribute('aria-label', `Levar ${nome} ao topo da árvore`);
-		b.addEventListener('click', () => carregar(nivel, NIVEIS[nivel].foco(item)));
+		b.addEventListener('click', () => carregar(nivel, NIVEIS[nivel].foco(item), pos));
 	}
 	return b;
 }
@@ -1043,38 +1134,6 @@ async function checarStatus() {
 	}
 }
 
-/* ==============================
- * Atmosfera
- * ============================== */
-
-const PETALAS = 16;
-
-/** Povoa o fundo com pétalas à deriva
- *
- * Cada uma sobe uma vez a cada ciclo; o que varia entre elas é a coluna, o
- * tamanho, a duração e o desvio lateral. O atraso negativo faz a animação
- * começar no meio: a tela já abre com pétalas espalhadas, em vez de todas
- * saindo juntas da borda de baixo.
- */
-function semearPetalas() {
-	if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-	const campo = $('particulas');
-	const frag = document.createDocumentFragment();
-
-	for (let i = 0; i < PETALAS; i++) {
-		const dur = 22 + Math.random() * 26;
-		const p = document.createElement('i');
-		p.className = 'particula';
-		p.style.setProperty('--x', (Math.random() * 100).toFixed(2) + '%');
-		p.style.setProperty('--t', (4 + Math.random() * 6).toFixed(1) + 'px');
-		p.style.setProperty('--dur', dur.toFixed(1) + 's');
-		p.style.setProperty('--atraso', (-Math.random() * dur).toFixed(1) + 's');
-		p.style.setProperty('--desvio', Math.round(-90 + Math.random() * 180) + 'px');
-		frag.append(p);
-	}
-	campo.append(frag);
-}
 
 /* ==============================
  * Início
@@ -1086,7 +1145,6 @@ const observadorObras = new IntersectionObserver((entradas) => {
 }, { rootMargin: '600px' });
 
 function iniciar() {
-	semearPetalas();
 	restaurarEd();
 
 	/* Explicação das métricas sob cada painel */
