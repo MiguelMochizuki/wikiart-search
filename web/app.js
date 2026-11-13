@@ -161,8 +161,22 @@ function descrever(nivel, item) {
  * Estrutura escolhida
  * ============================== */
 
+const RESUMO_ED = {
+	tabela_ord: 'Array ordenado. A busca binária acha o começo do intervalo e coleta enquanto casa: '
+		+ 'custo parecido em toda busca, sobre memória contígua. Inserir no meio desloca a cauda.',
+	arvore_afunilada: 'Splay tree. Cada acesso leva o nó à raiz por rotações, então o que você abriu há pouco '
+		+ 'fica perto do topo, e inserir só religa nós. Em troca, até uma busca altera a estrutura.'
+};
+
 function edAtual() {
-	return $('seletor-ed').value;
+	return document.querySelector('#seletor-ed [aria-pressed="true"]').dataset.ed;
+}
+
+/** Marca a estrutura escolhida no controle e atualiza o resumo */
+function definirEd(ed) {
+	document.querySelectorAll('#seletor-ed button').forEach((b) =>
+		b.setAttribute('aria-pressed', String(b.dataset.ed === ed)));
+	$('ed-resumo').textContent = RESUMO_ED[ed];
 }
 
 /** Restaura a estrutura da última visita. É conveniência do visitante:
@@ -170,7 +184,7 @@ function edAtual() {
 function restaurarEd() {
 	let salva = null;
 	try { salva = localStorage.getItem('wikiart:ed'); } catch { /* modo privado */ }
-	if (salva && NOMES_ED[salva]) $('seletor-ed').value = salva;
+	definirEd(salva && NOMES_ED[salva] ? salva : 'tabela_ord');
 }
 
 function guardarEd() {
@@ -186,8 +200,8 @@ function guardarEd() {
  * O URLSearchParams codifica espaço como "+", que o servidor já decodifica.
  * Em erro HTTP, a mensagem da engine (campo "erro") vai junto na exceção.
  */
-async function consultar(rota, params) {
-	const qs = new URLSearchParams({ ...params, ed: edAtual() });
+async function consultar(rota, params, ed = edAtual()) {
+	const qs = new URLSearchParams({ ...params, ed });
 	const resp = await fetch(`${API}/api/${rota}?${qs}`);
 	if (!resp.ok) {
 		let detalhe = '';
@@ -206,7 +220,8 @@ function mostrarTela(nome) {
 	$('tela-artistas').hidden = nome !== 'artistas';
 	$('tela-obras').hidden = nome !== 'obras';
 	$('tela-resultados').hidden = nome !== 'resultados';
-	document.querySelector('.campo-ed').hidden = nome === 'resultados';
+	$('barra-ed').hidden = nome === 'resultados';
+	if (nome === 'resultados') esconderAviso();
 }
 
 function hashGenero(genero) {
@@ -296,7 +311,7 @@ async function carregar(nivel, foco) {
 	/* Afunilar mantém a árvore na tela, esmaecida, até a nova forma chegar:
 	 * sumir com ela a cada clique faria a página pular. */
 	if (foco === undefined) {
-		if (nivel === 'obras') $('comparacao-saida').textContent = '';
+		$('comparacao-saida').textContent = '';
 		$(cfg.metricas).hidden = true;
 		$(cfg.grade).textContent = '';
 		$(cfg.arvore).textContent = '';
@@ -323,6 +338,7 @@ async function carregar(nivel, foco) {
 
 	esconderAviso();
 	renderMetricas($(cfg.metricas), dados);
+	renderCausa($(cfg.metricas), nivel, dados);
 
 	const emArvore = Array.isArray(dados.vista);
 	$(cfg.grade).hidden = emArvore;
@@ -398,11 +414,72 @@ function renderMetricas(caixa, dados) {
 	caixa.hidden = false;
 }
 
+/** Diz, sob as métricas, qual modificação do algoritmo clássico produziu estes números
+ *
+ * Parâmetros:
+ * caixa: painel de métricas da tela (a frase entra logo depois dele)
+ * string nivel: chave de NIVEIS
+ * dados: resposta da engine
+ */
+function renderCausa(caixa, nivel, dados) {
+	const m = dados.metricas || {};
+	const arvore = Array.isArray(dados.vista);
+	const total = typeof dados.total === 'number' ? dados.total : m.total_encontrados;
+	const comp = nf.format(m.comparacoes || 0);
+	const frases = [];
+
+	if (nivel === 'generos') {
+		/* Sem chave: a engine percorre tudo em ordem, e não há o que comparar nem rotacionar. */
+		frases.push('Listar todos os estilos é um percurso em ordem, sem chave: não há comparações nem rotações.'
+			+ (arvore ? ' O selo +N de cada nó vem do tamanho da subárvore guardado nele.' : ''));
+	} else if (arvore) {
+		frases.push(`A descida parou no primeiro nó do intervalo e o levou à raiz com ${nf.format(m.rotacoes || 0)} `
+			+ 'rotações (afunilamento): o intervalo ficou abaixo dela.');
+		frases.push('O selo +N de cada nó vem do tamanho da subárvore guardado nele, sem percorrer os itens.');
+		if (nivel === 'obras' && total > PAGINA) {
+			frases.push(`Só ${PAGINA} de ${nf.format(total)} obras foram coletadas: o mesmo tamanho dá o nó de partida da página sem passar pelas anteriores.`);
+		}
+	} else {
+		frases.push(`Busca binária de limite inferior até o começo do intervalo e coleta enquanto casa: ${comp} comparações`
+			+ (typeof total === 'number' ? ` para ${plural(total, 'item', 'itens')}.` : '.'));
+		if (nivel === 'obras' && total > PAGINA) {
+			frases.push(`Só ${PAGINA} de ${nf.format(total)} obras foram coletadas: dois limites por busca binária dão o começo e o fim do intervalo.`);
+		}
+	}
+
+	let p = caixa.nextElementSibling;
+	if (!p || !p.classList.contains('causa')) {
+		p = document.createElement('p');
+		p.className = 'causa';
+		caixa.after(p);
+	}
+	p.textContent = frases.join(' ');
+}
+
 /* ==============================
  * Comparação entre as estruturas
  * ============================== */
 
-/** Roda a busca de obras atual nas duas estruturas, duas vezes, e explica
+/** Uma rodada da comparação, no formato de /api/comparar
+ *
+ * Obras têm rota própria. Estilos e artistas fazem a mesma consulta em cada
+ * estrutura, uma depois da outra.
+ */
+async function rodadaComparacao() {
+	if (estado.nivel === 'obras') {
+		return consultar('comparar', { genero: estado.genero, artista: estado.artista, limite: PAGINA });
+	}
+	const cfg = NIVEIS[estado.nivel];
+	const comparativo = [];
+	for (const ed of Object.keys(NOMES_ED)) {
+		const { metricas: m } = await consultar(cfg.rota, cfg.params(), ed);
+		comparativo.push({ estrutura: ed, comparacoes: m.comparacoes, rotacoes: m.rotacoes || 0,
+			tempo_ms: m.tempo_ms, total_encontrados: m.total_encontrados });
+	}
+	return { comparativo, total_encontrados: comparativo[0].total_encontrados };
+}
+
+/** Roda a busca atual nas duas estruturas, duas vezes, e explica
  *
  * A segunda rodada mostra o que a árvore aprendeu com a primeira: o que foi
  * aberto há pouco já está no topo. A tabela não muda entre as rodadas.
@@ -415,11 +492,10 @@ async function compararEstruturas() {
 	saida.textContent = 'comparando…';
 
 	try {
-		const params = { genero: estado.genero, artista: estado.artista, limite: PAGINA };
-		const primeira = await consultar('comparar', params);
-		const segunda = await consultar('comparar', params);
+		const primeira = await rodadaComparacao();
+		const segunda = await rodadaComparacao();
 		if (selo !== estado.selo) return;
-		renderComparacao(saida, primeira, segunda);
+		renderComparacao(saida, primeira, segunda, estado.nivel);
 	} catch (err) {
 		if (selo === estado.selo) saida.textContent = `Falha ao comparar: ${err.message}.`;
 	} finally {
@@ -432,8 +508,10 @@ async function compararEstruturas() {
  * Parâmetros:
  * saida: elemento que recebe o resultado
  * primeira, segunda: respostas de /api/comparar das duas rodadas
+ * string nivel: chave de NIVEIS, para dizer "obras", "artistas" ou "estilos"
  */
-function renderComparacao(saida, primeira, segunda) {
+function renderComparacao(saida, primeira, segunda, nivel) {
+	const coisa = { generos: 'estilos', artistas: 'artistas', obras: 'obras' }[nivel];
 	const de = (dados, nome) => dados.comparativo.find((c) => c.estrutura === nome);
 	const t1 = de(primeira, 'tabela_ord'), a1 = de(primeira, 'arvore_afunilada');
 	const t2 = de(segunda, 'tabela_ord'), a2 = de(segunda, 'arvore_afunilada');
@@ -463,18 +541,25 @@ function renderComparacao(saida, primeira, segunda) {
 	}
 
 	const frases = [];
-	frases.push(`As duas estruturas devolveram as mesmas ${nf.format(primeira.total_encontrados)} obras` +
-		` (a tela pede ${PAGINA} por vez).`);
-	frases.push(`Para achar esta página, a tabela fez ${nf.format(t1.comparacoes)} comparações e ` +
+	frases.push(`As duas estruturas devolveram os mesmos ${nf.format(primeira.total_encontrados)} ${coisa}` +
+		(nivel === 'obras' ? ` (a tela pede ${PAGINA} por vez).` : '.'));
+	const semBusca = t1.comparacoes === 0 && a1.comparacoes === 0;
+	if (semBusca) {
+		frases.push('Listar tudo é um percurso em ordem, sem chave: nenhuma das duas compara ou rotaciona. '
+			+ 'A diferença só aparece nas buscas por artista e por obra.');
+	}
+	else frases.push(`Para esta busca, a tabela fez ${nf.format(t1.comparacoes)} comparações e ` +
 		`a árvore, ${nf.format(a1.comparacoes)}` + (a1.rotacoes > 0
-			? `, com ${nf.format(a1.rotacoes)} rotações para levar este artista ao topo.`
-			: ', sem rotações: um acesso anterior já tinha deixado este artista no topo.'));
-	if (a2.rotacoes < a1.rotacoes || a2.comparacoes < a1.comparacoes) {
+			? `, com ${nf.format(a1.rotacoes)} rotações para levar este item ao topo.`
+			: ', sem rotações: um acesso anterior já tinha deixado este item no topo.'));
+	if (semBusca) {
+		/* nada a aprender com a repetição */
+	} else if (a2.rotacoes < a1.rotacoes || a2.comparacoes < a1.comparacoes) {
 		frases.push(`Na segunda vez a árvore precisou de ${nf.format(a2.comparacoes)} comparações e ` +
 			`${nf.format(a2.rotacoes)} rotações: o que você abriu ficou no topo. ` +
 			`A tabela repetiu o mesmo esforço (${nf.format(t2.comparacoes)}).`);
 	} else {
-		frases.push('Repetir a busca não deixou a árvore mais barata: o artista já estava no topo.');
+		frases.push('Repetir a busca não deixou a árvore mais barata: o item já estava no topo.');
 	}
 	const lento = Math.max(t1.tempo_ms, a1.tempo_ms, t2.tempo_ms, a2.tempo_ms);
 	frases.push(lento < 1
@@ -934,6 +1019,7 @@ function mostrarAviso(mensagem, comando, rodape) {
 }
 
 function avisarEngine(mensagem) {
+	if (!$('tela-resultados').hidden) return; // a tela de resultados não usa a engine
 	mostrarAviso(mensagem, 'docker compose up -d --build engine',
 		`A engine responde em ${API}. Confira se ela está no ar e atualizada:`);
 }
@@ -1012,10 +1098,12 @@ function iniciar() {
 
 	$('filtro-estilos').addEventListener('input', renderEstilos);
 	$('filtro-artistas').addEventListener('input', renderArtistas);
-	$('seletor-ed').addEventListener('change', () => {
+	document.querySelectorAll('#seletor-ed button').forEach((b) => b.addEventListener('click', () => {
+		if (b.getAttribute('aria-pressed') === 'true') return;
+		definirEd(b.dataset.ed);
 		guardarEd();
 		if (estado.nivel) carregar(estado.nivel);
-	});
+	}));
 	$('visor-fechar').addEventListener('click', fecharVisor);
 	$('visor').addEventListener('click', (e) => { if (e.target === $('visor')) fecharVisor(); });
 	document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharVisor(); });

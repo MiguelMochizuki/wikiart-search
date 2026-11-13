@@ -269,31 +269,6 @@ img { max-width: 100%; }
   flex-wrap: wrap;
 }
 
-.campo-ed {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--capitular);
-  font-size: 10.5px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--cinza-fraco);
-}
-
-.campo-ed select {
-  background: var(--tela-2);
-  color: var(--osso);
-  border: 1px solid var(--linha);
-  border-radius: var(--raio);
-  padding: 6px 9px;
-  font: 300 12.5px/1 var(--interface);
-  letter-spacing: 0.02em;
-  text-transform: none;
-  cursor: pointer;
-  transition: border-color 0.2s, color 0.2s;
-}
-.campo-ed select:hover { border-color: var(--ouro); color: var(--ouro-claro); }
-
 .status {
   display: inline-flex;
   align-items: center;
@@ -1369,3 +1344,34 @@ main {
 .res-legenda i { display: inline-block; width: 22px; height: 10px; margin-right: -14px; border-radius: var(--raio); }
 .res-legenda i[data-estrutura="tabela_ord"] { background: var(--lumina); }
 .res-legenda i[data-estrutura="arvore_afunilada"] { background: var(--ouro); }
+
+/* ==============================
+ * Barra da estrutura (vale para os três níveis)
+ * ============================== */
+
+.barra-ed { margin-bottom: 26px; }
+.barra-ed-linha { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
+.barra-ed-rotulo {
+  font-family: var(--capitular);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--cinza-fraco);
+}
+.seletor-ed { display: inline-flex; border: 1px solid var(--linha); border-radius: var(--raio); }
+.seletor-ed button {
+  background: transparent;
+  color: var(--cinza);
+  border: 0;
+  padding: 8px 16px;
+  font: 400 13px/1 var(--interface);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.seletor-ed button + button { border-left: 1px solid var(--linha); }
+.seletor-ed button:hover { color: var(--ouro-claro); }
+.seletor-ed button[aria-pressed="true"] { background: var(--ouro-vel); color: var(--ouro-claro); cursor: default; }
+.ed-resumo { margin: 10px 0 0; max-width: 78ch; color: var(--cinza); font-size: 14px; line-height: 1.5; }
+.barra-ed .comparacao { margin: 16px 0 0; }
+.comparacao > summary { cursor: pointer; color: var(--ouro); font-size: 14px; }
+.causa { margin: -14px 0 18px; max-width: 90ch; color: var(--cinza); font-size: 13.5px; line-height: 1.5; }
