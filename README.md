@@ -72,7 +72,7 @@ A interface mostra esses cenários na aba **Resultados** (`#/resultados`), desen
 
 ## Interface web
 
-A navegação é em três níveis: **estilo → artista → obras**. O seletor no topo troca a estrutura e refaz a consulta da tela aberta, e toda tela mostra as métricas da busca (estrutura, algoritmo, tempo, comparações e rotações).
+A navegação é em três níveis: **estilo → artista → obras**. O controle de estrutura no topo da tela troca a estrutura e refaz a consulta da tela aberta, e toda tela mostra as métricas da busca (estrutura, algoritmo, tempo, comparações e rotações).
 
 - **Tabela ordenada:** cada tela é uma grade, com estilos e artistas mostrados pela pintura de capa. As obras têm rolagem infinita, que pede à engine uma página de 30 por vez.
 - **Árvore afunilada:** a tela desenha a vista dos quatro primeiros níveis da árvore (1 + 2 + 4 + 8 nós). A raiz ocupa a primeira fileira inteira, e cada nó divide a largura do pai com o irmão. Clicar num nó o afunila até a raiz, e a engine devolve a árvore já reorganizada. Clicar na raiz abre o próximo nível ou, nas obras, amplia a pintura. Nos níveis 2 e 3 a vista mostra só o intervalo da tela, e um selo `+N` na última fileira diz quantos itens ficaram abaixo.
@@ -100,6 +100,7 @@ O tema é um claro-escuro de ateliê: fundo de noite, fios de ouro velho e numer
 | `GET /api/artistas` | 2 | `genero` (obrigatório), `ed`, `foco=<artista>` |
 | `GET /api/busca` | 3 | `genero` (obrigatório), `artista`, `ed`, `foco=<id da obra>`, `offset` e `limite` |
 | `GET /api/comparar` | 3 | `genero`, `artista`, `offset` e `limite`: a mesma busca nas duas estruturas |
+| `GET /api/insercao` | | mede a carga dos três níveis em cada estrutura, com chegada embaralhada e ordenada, em índices descartáveis (bloqueia o servidor por cerca de 0,5 s no acervo completo) |
 | `GET /api/status` | | |
 
 `ed` é `tabela_ord` (padrão) ou `arvore_afunilada`. Com `limite`, a resposta traz só a página, e `total_encontrados` é o tamanho do intervalo inteiro. `foco` acessa um item e, na árvore, o leva à raiz.

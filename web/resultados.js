@@ -49,6 +49,38 @@ function barras(titulo, unidade, linhas) {
 	return bloco;
 }
 
+/** Laboratório: repete a carga na engine, ao vivo, com /api/insercao
+ *
+ * A engine monta índices descartáveis, sem tocar nos que atendem a navegação,
+ * e o servidor fica ocupado enquanto mede (cerca de meio segundo no acervo completo).
+ */
+function laboratorioCarga() {
+	const lab = el('div', 'res-lab');
+	const botao = el('button', 'botao-comparar', 'Medir agora na engine');
+	const saida = el('div', 'comparacao-saida');
+	saida.setAttribute('aria-live', 'polite');
+	botao.type = 'button';
+	botao.addEventListener('click', async () => {
+		botao.disabled = true;
+		saida.textContent = 'medindo…';
+		try {
+			const resp = await fetch(`${API}/api/insercao`);
+			if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+			const d = await resp.json();
+			const linhas = d.cargas.map((c) => ({
+				rotulo: `${NOME_ED[c.estrutura].split(' ')[0]}, ${c.ordem === 'ordenada' ? 'em ordem' : 'embaralhada'}`,
+				valor: c.ms, estrutura: c.estrutura }));
+			saida.replaceChildren(barras(`Medido agora: carga de ${d.itens.toLocaleString('pt-BR')} itens`, 'ms', linhas));
+		} catch (e) {
+			saida.textContent = `Falha ao medir: ${e.message}. A engine está no ar em ${API}?`;
+		} finally {
+			botao.disabled = false;
+		}
+	});
+	lab.append(el('p', 'comparacao-texto', 'Os números acima vêm de um benchmark gravado. Aqui a engine refaz a carga agora, na sua máquina, com as duas ordens de chegada.'), botao, saida);
+	return lab;
+}
+
 /** Cartão de cenário: número, título, vencedor, causa e gráficos */
 function cenario(num, titulo, vencedor, causa, graficos) {
 	const sec = el('article', 'res-cenario');
@@ -90,7 +122,7 @@ function montarResultados(d) {
 			{ rotulo: 'Tabela, embaralhada', valor: carga(T), estrutura: T },
 			{ rotulo: 'Árvore, embaralhada', valor: carga(A), estrutura: A },
 			{ rotulo: 'Tabela, em ordem', valor: carga(`${T}_carga_ordenada`), estrutura: T },
-			{ rotulo: 'Árvore, em ordem', valor: carga(`${A}_carga_ordenada`), estrutura: A }])]));
+			{ rotulo: 'Árvore, em ordem', valor: carga(`${A}_carga_ordenada`), estrutura: A }]), laboratorioCarga()]));
 
 	/* 4. Veredito */
 	const v = el('article', 'res-cenario');
