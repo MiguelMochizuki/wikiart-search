@@ -68,7 +68,7 @@ Benchmark sobre 80.042 obras, 10.000 buscas por operação. Cada estrutura ganha
 | Carga com ordem de chegada embaralhada | **Árvore**, 2,5x | 94 ms contra 231 ms: inserir no meio do array desloca a cauda |
 | Carga na ordem das chaves | **Tabela** e árvore, ambas baratas | 17 ms e 3 ms |
 
-A busca paginada (`buscar_pagina`) corta o tempo em cerca de 5,5x nas duas estruturas, e o servidor usa a tabela como padrão. Análise completa, gráficos e a comparação de cada modificação com o algoritmo clássico: [`results/RESULTADOS.md`](results/RESULTADOS.md). Dados brutos: [`results/bench_80k.csv`](results/bench_80k.csv).
+A interface mostra esses cenários na aba **Resultados** (`#/resultados`), desenhada a partir do `bench_80k.csv`. A busca paginada (`buscar_pagina`) corta o tempo em cerca de 5,5x nas duas estruturas, e o servidor usa a tabela como padrão. Análise completa, gráficos e a comparação de cada modificação com o algoritmo clássico: [`results/RESULTADOS.md`](results/RESULTADOS.md). Dados brutos: [`results/bench_80k.csv`](results/bench_80k.csv).
 
 ## Interface web
 

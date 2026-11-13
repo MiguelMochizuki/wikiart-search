@@ -39,6 +39,7 @@
       </nav>
 
       <div class="topo-controles">
+        <a class="link-resultados" href="#/resultados">Resultados</a>
         <label class="campo-ed">
           <span>Estrutura</span>
           <select id="seletor-ed">
@@ -143,6 +144,19 @@
       <div class="sentinela" id="sentinela"></div>
     </section>
 
+    <!-- Resultados do benchmark -->
+    <section id="tela-resultados" class="tela" hidden>
+      <div class="tela-cabeca">
+        <div class="cabeca-texto">
+          <p class="ato"><span class="ato-rotulo">Resultados</span></p>
+          <h2>O que cada estrutura melhora</h2>
+          <p class="sub">Benchmark sobre 80.042 obras, 10.000 buscas por operação. Cada estrutura ganha num cenário diferente.</p>
+        </div>
+      </div>
+      <p class="res-legenda"><i data-estrutura="tabela_ord"></i>Tabela ordenada <i data-estrutura="arvore_afunilada"></i>Árvore afunilada</p>
+      <div id="resultados-conteudo"></div>
+    </section>
+
     <div class="aviso" id="aviso" hidden></div>
   </main>
 
@@ -160,6 +174,7 @@
   <!-- Grão de tela sobre toda a interface: tira o aspecto liso de gradiente puro. -->
   <div class="grao" aria-hidden="true"></div>
 
+  <script src="resultados.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

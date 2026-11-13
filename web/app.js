@@ -205,6 +205,8 @@ function mostrarTela(nome) {
 	$('tela-estilos').hidden = nome !== 'estilos';
 	$('tela-artistas').hidden = nome !== 'artistas';
 	$('tela-obras').hidden = nome !== 'obras';
+	$('tela-resultados').hidden = nome !== 'resultados';
+	document.querySelector('.campo-ed').hidden = nome === 'resultados';
 }
 
 function hashGenero(genero) {
@@ -215,13 +217,13 @@ function hashArtista(genero, artista) {
 	return hashGenero(genero) + '/' + encodeURIComponent(artista);
 }
 
-function montarTrilha() {
+function montarTrilha(nosFixos) {
 	const trilha = $('trilha');
 	trilha.textContent = '';
 
-	const nos = [{ rotulo: 'Estilos', hash: '#/' }];
-	if (estado.genero) nos.push({ rotulo: estado.genero, hash: hashGenero(estado.genero) });
-	if (estado.artista) nos.push({ rotulo: capitalizar(estado.artista), hash: null });
+	const nos = nosFixos || [{ rotulo: 'Estilos', hash: '#/' }];
+	if (!nosFixos && estado.genero) nos.push({ rotulo: estado.genero, hash: hashGenero(estado.genero) });
+	if (!nosFixos && estado.artista) nos.push({ rotulo: capitalizar(estado.artista), hash: null });
 
 	nos.forEach((no, i) => {
 		if (i > 0) {
@@ -250,6 +252,15 @@ function rotear() {
 		partes = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
 	} catch { /* hash malformado: volta aos estilos */ }
 	const [genero, artista] = partes;
+
+	if (genero === 'resultados' && !artista) {
+		estado.nivel = null;
+		estado.genero = estado.artista = null;
+		montarTrilha([{ rotulo: 'Resultados', hash: null }]);
+		mostrarTela('resultados');
+		carregarResultados();
+		return;
+	}
 
 	estado.genero = genero || null;
 	estado.artista = (genero && artista) || null;

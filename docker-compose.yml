@@ -44,6 +44,8 @@ services:
       - "${PORTA_WEB:-3000}:80"
     volumes:
       - ./web:/usr/share/nginx/html:ro
+      # CSV do benchmark, lido pela tela Resultados
+      - ./results:/usr/share/nginx/html/results:ro
     depends_on:
       - engine
     restart: unless-stopped
