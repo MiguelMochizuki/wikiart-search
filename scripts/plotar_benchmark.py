@@ -123,7 +123,7 @@ def main() -> None:
         )
 
     entrada = Path(sys.argv[1])
-    saida_dir = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("resultados/graficos")
+    saida_dir = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("results/graficos")
     saida_dir.mkdir(parents=True, exist_ok=True)
 
     if not entrada.exists():
